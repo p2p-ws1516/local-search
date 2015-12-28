@@ -15,3 +15,4 @@
 
 ##Iteration 3
 * Try to optimize routing w.r.t the location, e.g. do not flood requests further than necessary
+* Note: considered hard by Prof. because we may get stuck in local optima
