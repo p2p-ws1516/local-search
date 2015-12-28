@@ -2,8 +2,10 @@
 
 ##Iteration 1
 
+* Setup *Elixir* project
+* Implement CLI 
 * Implement simple Gnutella 0.4 using location (radius) as a simple filtering criterion.
-* Requests are simply flooded and without respect to the location.
+* Note: Requests are simply flooded and without respect to the location.
 
 ##Iteration 2
 
