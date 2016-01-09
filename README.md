@@ -7,7 +7,7 @@
 
 ###Iteration 1.1
 
-* mix / build -> Flo
+* mix / build -> Flo -> **done**
 * Test-Driven / Unit tests -> Denis
 * TCP / UDP -> Flo
 * REPL / CLI -> Denis
