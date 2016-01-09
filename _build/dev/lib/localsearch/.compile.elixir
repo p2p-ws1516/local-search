@@ -1,0 +1,5 @@
+/home/flrnb/workspace/p2p/local-search/_build/dev/lib/localsearch/ebin/Elixir.Query.beam	Elixir.Query	lib/Query.ex	Elixir
+_build/dev/lib/localsearch/ebin/Elixir.Main.beam	Elixir.Main	lib/localsearch.ex	Elixir.Overlay	Elixir
+_build/dev/lib/localsearch/ebin/Elixir.Joining.beam	Elixir.Joining	lib/Joining.ex	erlang	Elixir
+_build/dev/lib/localsearch/ebin/Elixir.Dispatcher.beam	Elixir.Dispatcher	lib/Dispatcher.ex	Elixir.Enum	Elixir.IO	Elixir.Joining	Elixir.Kernel	Elixir.Query	Elixir.String.Chars	erlang	Elixir
+_build/dev/lib/localsearch/ebin/Elixir.Overlay.beam	Elixir.Overlay	lib/Overlay.ex	Elixir.Dispatcher	Elixir.IO	Elixir.Kernel	Elixir.String.Chars	erlang	Elixir
