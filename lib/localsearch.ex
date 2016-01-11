@@ -1,9 +1,19 @@
 defmodule Main do
 
-	def start do
-		bootstrap_ip = {192, 168, 0, 1}
+	def main(args) do
+		{port, init} = args |> parse_args
+		bootstrap_ip = {127, 0, 0, 1}
+		bootstrap_port = 9999
 		latlon = {10.123123123, 98.123435353}
-		Overlay.join(bootstrap_ip, latlon)
+		Overlay.join({bootstrap_ip, bootstrap_port}, latlon, port, init)
+		IO.gets ""
+	end
+
+	def parse_args(args) do
+		case OptionParser.parse(args, switches: [init: :boolean]) do
+			{[port: port, init: init], _, _} -> {elem(Integer.parse(port), 0), init}
+			{[port: port], _, _} -> {elem(Integer.parse(port), 0), false}		
+		end
 	end
 
 end

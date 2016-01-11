@@ -5,24 +5,27 @@
 # 
 defmodule Dispatcher do
 
-	def init(bootstrap_ip, latlon) do
+	require Logger
+
+	@doc ~S"""
+	Init without obtaining other links (i.e. if peer is the first node)
+	"""
+	def init(latlon, listen_port) do
 		this = self
-		spawn_link fn -> Joining.join(this, bootstrap_ip, latlon) end
-		receive do # queue all other messages unless we haven't joined
-			{:joined, links} ->
-				IO.puts "Successfully joined overlay using links #{Enum.join(links, ", ")}"
-				spawn_link fn -> listen(links, this) end
-				loop(links, latlon, [])
-		after 
-			1000 -> IO.puts "Noting"
-		end
+		spawn_link fn -> Network.listen(this, listen_port) end
+		loop([], latlon, [], listen_port)
 	end
 
-	defp listen(links, dispatcher) do
-		# listen to sockets and handle messages from them
-		# forward to dispatcher
+	@doc ~S"""
+	Init using the bootstrap_node to get to know other peers
+	"""
+	def init(bootstrap_node, latlon, listen_port) do
+		this = self
+		spawn_link fn -> Network.listen(this, listen_port) end
+		spawn_link fn -> Joining.join(this, bootstrap_node, latlon) end
+		loop([], latlon, [], listen_port)
 	end
-
+	
 	#
 	# links is a set of {id, socket, latlon}-tuples
 	# latlon is a {latitude, longitude}-pair
@@ -30,21 +33,31 @@ defmodule Dispatcher do
 	#
 	# Do not block in the event handler of this function!
 	#
-	defp loop(links, latlon, data) do
+	defp loop(links, latlon, data, listen_port) do
 		this = self
 		receive do
-			{:join, other_ip, other_latlon, req_options} ->
-				spawn_link fn -> Joining.handle_join(this, links, latlon, other_latlon, req_options) end
-		    	loop(links, latlon, data)
-		    {:leave, requestor} ->
-		    	spawn fn -> leave(requestor, links) end
-		    {:query, requestor, other_latlon, query, req_options} ->
-		    	spawn_link fn -> Query.handle(requestor, links, latlon, query) end
-		    	loop(links, latlon, data)
-		    msg ->
-		    	IO.puts "Invalid message #{msg}"
-		    	loop(links, latlon, data)
-		end
+			{:joined, links} ->
+				Logger.info "Successfully joined overlay"
+				Logger.info "Current links:\n[#{Enum.join(Enum.map(links, &inspect/1), "\n")}]"
+				loop(links, latlon, [], listen_port)
+			
+			{:newlink, link} ->
+				loop([link | links], latlon, data, listen_port)
+			
+			{:request_join, socket, other_latlon, req_options} ->
+				spawn_link fn -> Joining.handle_join(this, socket, latlon, listen_port, other_latlon, req_options) end
+				loop(links, latlon, data, listen_port)
+			
+			{:leave, requestor} ->
+				spawn fn -> leave(requestor, links) end
+			
+			{:query, requestor, other_latlon, query, req_options} ->
+				spawn_link fn -> Query.handle(requestor, links, latlon, query) end
+				loop(links, latlon, data, listen_port)
+			msg ->
+				IO.puts "Invalid message #{inspect msg}"
+				loop(links, latlon, data, listen_port)
+			end
 	end
 
 	defp leave(requestor, links) do
