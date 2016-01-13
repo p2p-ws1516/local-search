@@ -1,4 +1,8 @@
 defmodule Main do
+  
+  def main(args) do
+    IO.puts "uii..." 
+  end
 
 	def start do
 		bootstrap_ip = {192, 168, 0, 1}
