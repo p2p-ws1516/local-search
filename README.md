@@ -16,7 +16,7 @@
     * run *./localsearch --port 8888* to connect to this peer
     * **Note**: everything (including ports) is hardcoded in *localsearch.ex*, so it works only with these port numbers and on a single machine
 * Test-Driven / Unit tests -> Denis
-* REPL / CLI -> Denis
+* REPL / CLI -> Denis **done** 
     * open client
         * if not present: ask for bootstrap IP
         * if not present: ask for location (lat / lon) 
