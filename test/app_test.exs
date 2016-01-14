@@ -3,16 +3,20 @@ defmodule AppTest do
 
   test "the truth" do
     # Start Bootstrap
-    peer1 = Peer.join( {{127,0,0,1},9999}, {0,0}, 9999, true )
+    { :ok, peer1 } = Peer.join(%{ location: {0,0}, listen_port: 9999 })
     :timer.sleep(200)
     
     # Start peer
-    peer2 = Peer.join( {{127,0,0,1},9999}, {1,1}, 9998, false )
+    { :ok, peer2 } = Peer.join(%{
+      location: {1,1},
+      listen_port: 9998,
+      links: [ {{127,0,0,1},9999} ]
+    })
     :timer.sleep(2000)
     
     # Check links of peer 2
     links2 = Peer.get_links( peer2 )
-    assert links2 == [[[127, 0, 0, 1], 9999, [0, 0]]]
+    assert links2 == [{{127, 0, 0, 1}, 9999}]
     
     # Check links of peer 1
     # links1 = Peer.get_links( peer1 )

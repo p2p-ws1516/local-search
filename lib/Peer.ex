@@ -7,34 +7,27 @@ defmodule Peer do
   use GenServer
 
   require Logger
+  
 
-  @doc ~S"""
-  Init without obtaining other links (i.e. if peer is the first node)
+  @doc """
+  Starts the Peer.
   """
-  def init(latlon, listen_port) do
-    this = self
-    spawn_link fn -> Network.listen(this, listen_port) end
-    loop( %{ :links => [], :location => latlon, :data => [], :listen_port => listen_port} )
+  def join( state ) do
+    GenServer.start_link(__MODULE__, state, [])
   end
 
-  @doc ~S"""
-  Init using the bootstrap_node to get to know other peers
-  """
-  def init(bootstrap_node, latlon, listen_port) do
-    this = self
-    spawn_link fn -> Network.listen(this, listen_port) end
-    spawn_link fn -> Joining.join(this, bootstrap_node, latlon) end
-    loop( %{ :links => [], :location => latlon, :data => [], :listen_port => listen_port} )
-  end
-
-  def join(bootstrap_node, latlon, listen_port, init) do
-    if init do
-      Logger.info "Initial node in overlay at #{format_latlon(latlon)}"
-      spawn_link fn -> Peer.init(latlon, listen_port) end
-    else 
-    Logger.info "Joining overlay using bootstrap node #{Network.format(bootstrap_node)} at #{format_latlon(latlon)}"
-    spawn_link fn -> Peer.init(bootstrap_node, latlon, listen_port) end
+  def init( state ) do
+    unless( Map.has_key?( state, :links ) ) do
+      Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
+      state = Map.put( state, :links, [] )
+    else
+      IO.puts "--- #{inspect hd(state.links)}"
+      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.links))} at #{format_latlon(state.location)}"
+      spawn_link fn -> Joining.join(self, hd(state.links), state.location) end
     end
+    
+    spawn_link fn -> Network.listen(self, state.listen_port) end
+    {:ok, state }
   end
 
   def query(peer_pid, latlon, query) do
@@ -51,16 +44,25 @@ defmodule Peer do
     end
   end
 
-  def get_links( peer_pid ) do
-    send(peer_pid, {:get_links, self()})
-    receive do
-      {:ok, links} -> links
-    end
+  def get_links( pid ) do
+    GenServer.call(pid, { :get_links })
+    
+    # send(peer_pid, {:get_links, self()})
+    # receive do
+    #   {:ok, links} -> links
+    # end
   end
+  
+  def handle_call( { :get_links }, _from, state ) do 
+    { :reply, state.links, state }
+  end
+  
+
 
   defp format_latlon({lat, lon}) do
     "lat: #{lat}, lon: #{lon}"
   end
+  
 
   #
   # links is a set of {id, socket, latlon}-tuples
@@ -69,7 +71,7 @@ defmodule Peer do
   #
   # Do not block in the event handler of this function!
   #
-  # defp loop(links, latlon, data, listen_port) do
+  # defp loop(links, location, data, listen_port) do
   defp loop( state ) do
     this = self
     receive do
@@ -94,9 +96,9 @@ defmodule Peer do
         spawn_link fn -> Query.handle(requestor, state.links, state.location, query) end
         loop( state )
         
-      {:get_links, requestor} ->
-        send(requestor, {:ok, state.links })
-        loop( state )
+      # {:get_links, requestor} ->
+      #   send(requestor, {:ok, state.links })
+      #   loop( state )
         
       msg ->
         IO.puts "Invalid message #{inspect msg}"
