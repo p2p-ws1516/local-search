@@ -1,56 +1,77 @@
+#
+# Module for Network I/O (socket handling, IP addresses)
+#
 defmodule Network do
 	
 	require Logger	
 
-	def listen(dispatcher, port) do
+	@doc ~S"""
+	Listen on port and forward all incoming messages to reply_to-address
+	"""
+	def listen(reply_to, port) do
 		{:ok, socket} = :gen_tcp.listen(port,
 			[:binary, packet: :line, active: false, reuseaddr: true])
-		Logger.info "Accepting connections on port #{port}"
-		loop_acceptor(dispatcher, socket)
+		Logger.debug "Accepting connections on port #{port}"
+		loop_acceptor(reply_to, socket)
 	end
 
-	defp loop_acceptor(dispatcher, socket) do
+	@doc ~S"""
+	Accepts ingoing TCP connections and sends content to reply_to-address
+	"""
+	defp loop_acceptor(reply_to, socket) do
 		{:ok, client} = :gen_tcp.accept(socket)
-		msg = read_line(client)
+		msg = read_msg(client)
 		Logger.debug "Got message #{inspect msg}"
-		send(dispatcher, msg)
-		loop_acceptor(dispatcher, socket)
+		send(reply_to, msg)
+		loop_acceptor(reply_to, socket)
 	end
 
-	def read_line(socket) do
+	@doc ~S"""
+	Sends msg to {ip_address, port} and waits synchronously for reply
+	Reply is returned as a tuple {message_type, content} 
+	"""
+	def send_and_recv_msg({ip_address, port}, msg) do
+		Logger.debug "Sending message #{inspect msg} to #{format({ip_address, port})}"
+		opts = [:binary, packet: :line, active: false]
+		{:ok, socket} = :gen_tcp.connect('127.0.0.1', port, opts)
+		send_msg(socket, msg)
+		read_msg(socket)
+	end
+
+	@doc ~S"""
+	Sends message over already established socket without waiting for a reply
+	"""
+	def send_msg(socket, msg, ttl \\ 7) do
+		msg_id = :crypto.hash(:sha256, "whatever") |> Base.encode16
+		Logger.debug "Sending message #{inspect msg}"
+		{status, line} = case msg do
+			{:request_join, {lat, lon}} -> 
+				JSON.encode([id: msg_id, type: "PING", ttl: ttl, latlon: [lat: lat, lon: lon]])
+			{:grant_join, links} -> 
+				JSON.encode([id: msg_id, type: "PONG", ttl: ttl, links: links])
+			_ -> raise "Unknown message #{inspect msg}"
+		end
+		Logger.debug "Sending via TCP #{inspect line}"
+		:gen_tcp.send(socket, line <> "\r\n")
+	end
+
+	@doc ~S"""
+	Reads one line from socket and converts it to {message_type, content} 
+	"""
+	def read_msg(socket) do
 		{:ok, data} = :gen_tcp.recv(socket, 0)
-		case String.split(data) do
-			["REQUESTJOIN", lat, lon] -> 
-				{:request_join, socket, {lat, lon}, []}
-			["GRANTJOIN" | links ] -> 
-				{:joined, links}
+		{status, msg} = JSON.decode(data)
+		Logger.debug "Got via TCP #{inspect msg}"
+		case msg["type"] do
+			"PING" ->
+				{:request_join, socket, {msg["latlon"]["lat"], msg["latlon"]["lon"]}, []}
+			"PONG" ->
+				{:joined, msg["links"]}
 			msg -> 
 				Logger.error "Unexpected network message: [\n#{data}]"
 				{:error, :unknown_command}
 		end
 	end
-
-	def send_and_recv_msg({ip_address, port}, msg) do
-		Logger.debug "Sending message #{inspect msg} to #{format({ip_address, port})}"
-		opts = [:binary, packet: :line, active: false]
-		{:ok, socket} = :gen_tcp.connect('127.0.0.1', port, opts)
-		line = case msg do
-			{:request_join, {lat, lon}} -> "REQUESTJOIN #{lat} #{lon}"
-			_ -> raise "Unknown message #{inspect msg}"
-		end
-		ok = :gen_tcp.send(socket, line <> "\r\n")
-		read_line(socket)
-	end
-
-	def send_msg(socket, msg) do
-		Logger.debug "Sending message #{inspect msg}"
-		line = case msg do
-			{:grant_join, links} -> "GRANTJOIN #{Enum.join(Enum.map(links, &format/1), ", ")}"
-			_ -> raise "Unknown message #{inspect msg}"
-		end
-		:gen_tcp.send(socket, line <> "\r\n")
-	end
-
 
 	def format({ip, port, {lat, lon}}) do
 		"#{format_ip(ip)}:#{port}@#{lat},#{lon}"		
@@ -64,4 +85,9 @@ defmodule Network do
 		"#{ip1}.#{ip2}.#{ip3}.#{ip4}"
 	end
 
+	def parse_ip(ip) do
+		{:ok, tuple} = :inet.parse_ipv4_address(to_char_list(ip))
+		tuple
+	end
+	
 end
