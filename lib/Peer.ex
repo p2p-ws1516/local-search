@@ -74,8 +74,8 @@ defmodule Peer do
             {:newlink, link} ->
               loop([link | links], latlon, data, listen_port)
             
-            {:ping, msg_id, link, req_options} ->
-                spawn_link fn -> Joining.handle_join(this, msg_id, link, latlon, listen_port, req_options) end
+            {:ping, msg_id, from_link, req_options} ->
+                spawn_link fn -> Joining.handle_join(this, msg_id, from_link, links, latlon, listen_port, req_options) end
                 loop(links, latlon, data, listen_port)
             
             {:pong, msg_id, link} ->
