@@ -18,13 +18,13 @@ defmodule Peer do
 
   def init( state ) do
     this = self
-    unless( Map.has_key?( state, :links ) ) do
+    state = Map.put( state, :links, [] )
+    
+    unless( Map.has_key?( state, :bootstrap) ) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
-      state = Map.put( state, :links, [] )
     else
-      IO.puts "--- #{inspect hd(state.links)}"
-      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.links))} at #{format_latlon(state.location)}"
-      spawn_link fn -> Joining.join(this, hd(state.links), state.location) end
+      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
+      spawn_link fn -> Joining.join(this, hd(state.bootstrap), state.location, state.listen_port) end
     end
     
     spawn_link fn -> Network.listen(this, state.listen_port) end
@@ -87,14 +87,11 @@ defmodule Peer do
         Logger.info "Current links:\n[#{Enum.join(Enum.map(links, &inspect/1), "\n")}]"
         state_ = Map.put( state, :links, links )
         loop( state_ )
-
-      {:newlink, link} ->
-        state_ = Map.update!( state, :links, fn links -> [ link | links ] end );
-        loop( state_ )
-
-      {:request_join, socket, other_latlon, req_options} ->
-        spawn_link fn -> Joining.handle_join(this, socket, state.location, state.listen_port, other_latlon, req_options) end
-        loop( state )
+      {:ping, msg_id, from_link, req_options} ->
+          spawn_link fn -> Joining.handle_join(this, msg_id, from_link, links, latlon, listen_port, req_options) end
+      {:pong, msg_id, link} ->
+        newlinks = [link | links]
+        Logger.info "Current list of links #{inspect newlinks}"
 
       {:leave, requestor} ->
         spawn fn -> leave(requestor, state.links) end

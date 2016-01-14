@@ -13,7 +13,7 @@
     * use *mix escript.build* to create executable *localsearch* file
 * TCP / UDP -> Flo -> **done**
     * run *./localsearch --port 9999 --init* to start initial peer
-    * run *./localsearch --port 8888* to connect to this peer
+    * run *./localsearch --port 8888 --bootstrap * to connect to this peer
     * **Note**: everything (including ports) is hardcoded in *localsearch.ex*, so it works only with these port numbers and on a single machine
 * Test-Driven / Unit tests -> Denis
 * REPL / CLI -> Denis **done** 

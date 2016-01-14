@@ -10,7 +10,7 @@ defmodule AppTest do
     { :ok, peer2 } = Peer.join(%{
       location: {1,1},
       listen_port: 9998,
-      links: [ {{127,0,0,1},9999} ]
+      bootstrap: [ {{127,0,0,1},9999} ]
     })
     :timer.sleep(2000)
     

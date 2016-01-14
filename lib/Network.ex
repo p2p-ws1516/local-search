@@ -30,28 +30,47 @@ defmodule Network do
 	Sends msg to {ip_address, port} and waits synchronously for reply
 	Reply is returned as a tuple {message_type, content} 
 	"""
-	def send_and_recv_msg({ip_address, port}, msg) do
+	def send_and_recv_msg({ip_address, port, latlon}, listen_port, msg) do
 		Logger.debug "Sending message #{inspect msg} to #{format({ip_address, port})}"
 		opts = [:binary, packet: :line, active: false]
-		{:ok, socket} = :gen_tcp.connect('127.0.0.1', port, opts)
-		send_msg(socket, msg)
+		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
+		send_msg(socket, listen_port, msg)
 		read_msg(socket)
 	end
 
+	def send_msg({ip_address, port, latlon}, listen_port, msg) do
+		opts = [:binary, packet: :line, active: false]
+		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
+		send_msg(socket, listen_port, msg)
+	end
+
 	@doc ~S"""
-	Sends message over already established socket without waiting for a reply
+	Sends message over socket without waiting for a reply
 	"""
-	def send_msg(socket, msg, ttl \\ 7) do
+	def send_msg(socket, reply_port, msg, ttl \\ 7) do
 		msg_id = :crypto.hash(:sha256, "whatever") |> Base.encode16
 		Logger.debug "Sending message #{inspect msg}"
 		{status, line} = case msg do
-			{:request_join, {lat, lon}} -> 
-				JSON.encode([id: msg_id, type: "PING", ttl: ttl, latlon: [lat: lat, lon: lon]])
-			{:grant_join, links} -> 
-				JSON.encode([id: msg_id, type: "PONG", ttl: ttl, links: links])
+			{:ping, {lat, lon}} -> 
+				JSON.encode(
+					[id: msg_id, 
+					type: "PING", 
+					ttl: ttl, 
+					replyport: reply_port, 
+					latlon: [lat: lat, lon: lon]])
+			{:pong, correlation_id, {lat, lon}} -> 
+				JSON.encode(
+					[id: msg_id, 
+					correlationid: correlation_id, 
+					type: "PONG", 
+					ttl: ttl, 
+					replyport: reply_port,
+					latlon: 
+					[lat: lat, lon: lon]])
 			_ -> raise "Unknown message #{inspect msg}"
 		end
 		Logger.debug "Sending via TCP #{inspect line}"
+		opts = [:binary, packet: :line, active: false]
 		:gen_tcp.send(socket, line <> "\r\n")
 	end
 
@@ -62,11 +81,12 @@ defmodule Network do
 		{:ok, data} = :gen_tcp.recv(socket, 0)
 		{status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
+		{:ok, {address, _}} = :inet.peername(socket)
 		case msg["type"] do
 			"PING" ->
-				{:request_join, socket, {msg["latlon"]["lat"], msg["latlon"]["lon"]}, []}
+				{:ping, msg["id"], {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}, []}
 			"PONG" ->
-				{:joined, msg["links"]}
+				{:pong, msg["id"], {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}}
 			msg -> 
 				Logger.error "Unexpected network message: [\n#{data}]"
 				{:error, :unknown_command}
@@ -82,7 +102,7 @@ defmodule Network do
 	end
 
 	def format_ip({ip1, ip2, ip3, ip4}) do
-		"#{ip1}.#{ip2}.#{ip3}.#{ip4}"
+		to_char_list "#{ip1}.#{ip2}.#{ip3}.#{ip4}"
 	end
 
 	def parse_ip(ip) do
