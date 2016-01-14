@@ -30,20 +30,6 @@ defmodule Peer do
     {:ok, state }
   end
 
-  def query(peer_pid, latlon, query) do
-
-  end
-
-  def leave(peer_pid) do
-    send(peer_pid, {:leave, self()})
-    receive do
-      {:ok} ->
-        Logger.info "Successfully finished"
-      msg ->
-        Logger.info "Leaving the network failed with #{msg}"
-    end
-  end
-
   def get_links( pid ) do
     GenServer.call(pid, { :get_links })
     
@@ -61,6 +47,22 @@ defmodule Peer do
 
   defp format_latlon({lat, lon}) do
     "lat: #{lat}, lon: #{lon}"
+  end
+  
+  ######### TODO: refactor to genserver
+
+  def query(peer_pid, latlon, query) do
+
+  end
+
+  def leave(peer_pid) do
+    send(peer_pid, {:leave, self()})
+    receive do
+      {:ok} ->
+        Logger.info "Successfully finished"
+      msg ->
+        Logger.info "Leaving the network failed with #{msg}"
+    end
   end
   
 
