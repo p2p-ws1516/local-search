@@ -28,11 +28,11 @@ defmodule Peer do
 	
 	def join(bootstrap_node, latlon, listen_port, init) do
 		if init do
-			spawn_link fn -> Peer.init(latlon, listen_port) end
 			Logger.info "Initial node in overlay at #{format_latlon(latlon)}"
+			spawn_link fn -> Peer.init(latlon, listen_port) end
 		else 
-			spawn_link fn -> Peer.init(bootstrap_node, latlon, listen_port) end
 			Logger.info "Joining overlay using bootstrap node #{Network.format(bootstrap_node)} at #{format_latlon(latlon)}"
+			spawn_link fn -> Peer.init(bootstrap_node, latlon, listen_port) end
 		end
 	end
 
@@ -49,6 +49,13 @@ defmodule Peer do
 		    	Logger.info "Leaving the network failed with #{msg}"
 		end
 	end
+  
+  def get_links( peer_pid ) do
+    send(peer_pid, {:get_links, self()})
+    receive do
+      {:ok, links} -> links
+    end
+  end
 
 	defp format_latlon({lat, lon}) do
 		"lat: #{lat}, lon: #{lon}"
@@ -82,6 +89,8 @@ defmodule Peer do
 			{:query, requestor, other_latlon, query, req_options} ->
 				spawn_link fn -> Query.handle(requestor, links, latlon, query) end
 				loop(links, latlon, data, listen_port)
+      {:get_links, requestor} ->
+        send(requestor, {:ok, links })
 			msg ->
 				IO.puts "Invalid message #{inspect msg}"
 				loop(links, latlon, data, listen_port)
