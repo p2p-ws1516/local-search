@@ -47,14 +47,17 @@ defmodule Network do
 	Sends message over socket without waiting for a reply
 	"""
 	def send_msg(socket, reply_port, msg, ttl \\ 7) do
-		msg_id = :crypto.hash(:sha256, "whatever") |> Base.encode16
+		msg_id = :crypto.hash(:sha256, 
+			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
+			|> Base.encode16
 		Logger.debug "Sending message #{inspect msg}"
 		{status, line} = case msg do
-			{:ping, {lat, lon}} -> 
+			{:ping, correlation_id, {lat, lon}} -> 
 				JSON.encode(
 					[id: msg_id, 
 					type: "PING", 
-					ttl: ttl, 
+					ttl: ttl,
+					correlationid: correlation_id, 
 					replyport: reply_port, 
 					latlon: [lat: lat, lon: lon]])
 			{:pong, correlation_id, {lat, lon}} -> 
