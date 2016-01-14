@@ -2,7 +2,7 @@
 
 defmodule CLI do
   
-  def repl() do
+  def repl(dispatcher_pid) do
     input = IO.gets "➤  "
     call = String.split input
     case call do
@@ -13,7 +13,7 @@ defmodule CLI do
       ["leave"] -> leave
       _ -> help
     end
-    unless call==["leave"] do repl() end
+    unless call==["leave"] do repl(dispatcher_pid) end
   end
   
   defp help() do

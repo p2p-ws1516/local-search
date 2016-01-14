@@ -5,8 +5,8 @@ defmodule Main do
 		bootstrap_ip = {127, 0, 0, 1}
 		bootstrap_port = 9999
 		latlon = {10.123123123, 98.123435353}
-		Overlay.join({bootstrap_ip, bootstrap_port}, latlon, port, init)
-    Agent.start_link fn -> CLI.repl end
+		dispatcher = App.join({bootstrap_ip, bootstrap_port}, latlon, port, init)
+    	Agent.start_link fn -> CLI.repl(dispatcher) end
 	end
   
 	defp parse_args(args) do
