@@ -2,8 +2,19 @@ defmodule Main do
 
 	def main(args) do
 		{port, init, bootstrap_ip, bootstrap_port, latlon} = args |> parse_args
-		dispatcher = Peer.join({bootstrap_ip, bootstrap_port}, latlon, port, init)
-    	Agent.start_link fn -> CLI.repl(dispatcher) end
+		{:ok, pid} = if init do
+      Peer.join(%{
+      	location: latlon,
+        listen_port: port
+      }) 
+      else
+      Peer.join(%{
+        location: latlon,
+        listen_port: port,
+        bootstrap: [ { bootstrap_ip,bootstrap_port } ]
+      }) 
+    end
+    Agent.start_link fn -> CLI.repl(pid) end
 	end
   
 	defp parse_args(args) do
@@ -37,8 +48,7 @@ defmodule Main do
 				false, 
 				bootstrap_ip, 
 				bootstrap_port, 
-				{elem(Float.parse(lat), 0), 
-				elem(Float.parse(lon), 0)}}
+				{elem(Float.parse(lat), 0), elem(Float.parse(lon), 0)}}
 			{[
 				port: port ], 
 				_, _} ->

@@ -33,13 +33,20 @@ defmodule Peer do
 
   def get_links( pid ) do
     GenServer.call(pid, { :get_links })
-    
-    # send(peer_pid, {:get_links, self()})
-    # receive do
-    #   {:ok, links} -> links
-    # end
+  end
+
+  def handle_cast( { :ping, msg_id, from_link, req_options}, state) do
+      this = self()
+      spawn_link fn -> Joining.handle_join(this, msg_id, from_link, state, req_options) end
+      {:noreply, state}
   end
   
+  def handle_cast( { :pong, msg_id, link}, state) do
+      state = Map.update!(state, :links, fn links -> [link | links] end)
+      Logger.info "Current list of links #{inspect Map.get(state, :links)}"
+      {:noreply, state}
+  end
+
   def handle_call( { :get_links }, _from, state ) do 
     { :reply, state.links, state }
   end
@@ -67,46 +74,6 @@ defmodule Peer do
         Logger.info "Successfully finished"
       msg ->
         Logger.info "Leaving the network failed with #{msg}"
-    end
-  end
-  
-
-  #
-  # links is a set of {id, socket, latlon}-tuples
-  # latlon is a {latitude, longitude}-pair
-  # data is the collection of data elements held by this peer
-  #
-  # Do not block in the event handler of this function!
-  #
-  # defp loop(links, location, data, listen_port) do
-  defp loop( state ) do
-    this = self
-    receive do
-      {:joined, links} ->
-        Logger.info "Successfully joined overlay"
-        Logger.info "Current links:\n[#{Enum.join(Enum.map(links, &inspect/1), "\n")}]"
-        state_ = Map.put( state, :links, links )
-        loop( state_ )
-      {:ping, msg_id, from_link, req_options} ->
-          spawn_link fn -> Joining.handle_join(this, msg_id, from_link, links, latlon, listen_port, req_options) end
-      {:pong, msg_id, link} ->
-        newlinks = [link | links]
-        Logger.info "Current list of links #{inspect newlinks}"
-
-      {:leave, requestor} ->
-        spawn fn -> leave(requestor, state.links) end
-
-      {:query, requestor, other_latlon, query, req_options} ->
-        spawn_link fn -> Query.handle(requestor, state.links, state.location, query) end
-        loop( state )
-        
-      # {:get_links, requestor} ->
-      #   send(requestor, {:ok, state.links })
-      #   loop( state )
-        
-      msg ->
-        IO.puts "Invalid message #{inspect msg}"
-        loop( state )
     end
   end
 
