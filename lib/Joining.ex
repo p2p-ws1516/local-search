@@ -1,7 +1,7 @@
 defmodule Joining do
 	
-	def join(peer, bootstrap_node, latlon) do
-		joined_reply = Network.send_and_recv_msg(bootstrap_node, {:request_join, latlon})
+	def join(peer, {bip, bport}, latlon, listen_port) do
+		joined_reply = Network.send_and_recv_msg({bip, bport, nil}, listen_port, {:ping, latlon})
 		send(peer, joined_reply)
 	end
 
@@ -9,10 +9,9 @@ defmodule Joining do
 		other_ips
 	end
 
-	def handle_join(peer, socket, my_latlon, myport, other_latlon, req_options) do
+	def handle_join(reply_to, msg_id, link, my_latlon, listen_port, req_options) do
 		# determine links
-		links = [{{127,0,0,1}, myport, my_latlon}]
-		Network.send_msg(socket, {:grant_join, links})
+		Network.send_msg(link, listen_port, {:pong, msg_id, my_latlon})
 	end
 
 end

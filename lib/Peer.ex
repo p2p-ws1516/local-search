@@ -22,7 +22,7 @@ defmodule Peer do
     def init(bootstrap_node, latlon, listen_port) do
         this = self
         spawn_link fn -> Network.listen(this, listen_port) end
-        spawn_link fn -> Joining.join(this, bootstrap_node, latlon) end
+        spawn_link fn -> Joining.join(this, bootstrap_node, latlon, listen_port) end
         loop([], latlon, [], listen_port)
     end
     
@@ -71,18 +71,18 @@ defmodule Peer do
     defp loop(links, latlon, data, listen_port) do
         this = self
         receive do
-            {:joined, links} ->
-              Logger.info "Successfully joined overlay"
-              Logger.info "Current links:\n[#{Enum.join(Enum.map(links, &inspect/1), "\n")}]"
-              loop(links, latlon, [], listen_port)
-            
             {:newlink, link} ->
               loop([link | links], latlon, data, listen_port)
             
-            {:request_join, socket, other_latlon, req_options} ->
-                spawn_link fn -> Joining.handle_join(this, socket, latlon, listen_port, other_latlon, req_options) end
+            {:ping, msg_id, link, req_options} ->
+                spawn_link fn -> Joining.handle_join(this, msg_id, link, latlon, listen_port, req_options) end
                 loop(links, latlon, data, listen_port)
             
+            {:pong, msg_id, link} ->
+              newlinks = [link | links]
+              Logger.info "Current list of links #{inspect newlinks}"
+              loop(newlinks, latlon, [], listen_port)
+
             {:leave, requestor} ->
                 spawn fn -> leave(requestor, links) end
             
@@ -91,6 +91,7 @@ defmodule Peer do
                 loop(links, latlon, data, listen_port)
             {:get_links, requestor} ->
                 send(requestor, {:ok, links })
+                
             msg ->
                 IO.puts "Invalid message #{inspect msg}"
                 loop(links, latlon, data, listen_port)
