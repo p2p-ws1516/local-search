@@ -21,7 +21,7 @@ defmodule Network do
 	defp loop_acceptor(reply_to, socket) do
 		{:ok, client} = :gen_tcp.accept(socket)
 		msg = read_msg(client)
-		Logger.debug "Got message #{inspect msg}"
+		Logger.debug "Got message #{inspect msg} #{inspect reply_to}"
 		send(reply_to, msg)
 		loop_acceptor(reply_to, socket)
 	end

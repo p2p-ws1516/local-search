@@ -14,6 +14,10 @@ defmodule AppTest do
     })
     :timer.sleep(2000)
     
+    IO.puts "#{inspect peer2} #{inspect peer1}"
+    
+    send peer2, "omg"
+    
     # Check links of peer 2
     links2 = Peer.get_links( peer2 )
     assert links2 == [{{127, 0, 0, 1}, 9999}]

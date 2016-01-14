@@ -17,16 +17,17 @@ defmodule Peer do
   end
 
   def init( state ) do
+    this = self
     unless( Map.has_key?( state, :links ) ) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
       state = Map.put( state, :links, [] )
     else
       IO.puts "--- #{inspect hd(state.links)}"
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.links))} at #{format_latlon(state.location)}"
-      spawn_link fn -> Joining.join(self, hd(state.links), state.location) end
+      spawn_link fn -> Joining.join(this, hd(state.links), state.location) end
     end
     
-    spawn_link fn -> Network.listen(self, state.listen_port) end
+    spawn_link fn -> Network.listen(this, state.listen_port) end
     {:ok, state }
   end
 
@@ -43,7 +44,11 @@ defmodule Peer do
     { :reply, state.links, state }
   end
   
-
+  def handle_info( anything, state ) do 
+    IO.puts "---d-d-d-d #{inspect anything}"
+    
+     {:noreply, state}
+  end
 
   defp format_latlon({lat, lon}) do
     "lat: #{lat}, lon: #{lon}"
