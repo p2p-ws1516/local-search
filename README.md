@@ -33,8 +33,8 @@
 
 ### Iteration 1.2
 
+* Implement Gnutella 0.4 -> Flo (by 2016-01-19)
 * Deal with partial failure (e.g. broken TCP connections)
-* Make ports, lat/lon, etc. configurable, so we don't need to pass it as a command line argument
 
 ##Iteration 2
 

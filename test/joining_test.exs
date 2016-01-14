@@ -3,7 +3,7 @@ defmodule JoiningTest do
 
   test "Joining of one peer" do
     # Start Bootstrap
-    { :ok, peer1 } = Peer.join(%{ location: {0,0}, listen_port: 9999 })
+    { :ok, _ } = Peer.join(%{ location: {0,0}, listen_port: 9999 })
     :timer.sleep(200)
     
     # Start peer

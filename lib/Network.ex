@@ -92,18 +92,55 @@ defmodule Network do
 		end
 	end
 
+
+	@doc ~S"""
+  	Formats IP, port and latlon tuple to string.
+
+  	## Examples
+
+      iex> Network.format({{127, 0, 0, 1}, 8080, {12.111115555, 13.4444499999}})
+      '127.0.0.1:8080@12.111115555,13.4444499999'
+
+  	"""
 	def format({ip, port, {lat, lon}}) do
-		"#{format_ip(ip)}:#{port}@#{lat},#{lon}"		
+		to_char_list "#{format_ip(ip)}:#{port}@#{lat},#{lon}"		
 	end
 
+	@doc ~S"""
+  	Formats IP-and-port-tuple to string.
+
+  	## Examples
+
+      iex> Network.format({{127, 0, 0, 1}, 8080})
+      '127.0.0.1:8080'
+
+  	"""
 	def format({ip, port}) do
-		"#{format_ip(ip)}:#{port}"		
+		to_char_list "#{format_ip(ip)}:#{port}"		
 	end
 
+	@doc ~S"""
+  	Formats IP-tuple to string.
+
+  	## Examples
+
+      iex> Network.format_ip({127, 0, 0, 1})
+      '127.0.0.1'
+
+  	"""
 	def format_ip({ip1, ip2, ip3, ip4}) do
 		to_char_list "#{ip1}.#{ip2}.#{ip3}.#{ip4}"
 	end
 
+	@doc ~S"""
+  	Parses the given simple IP string into a tuple.
+
+  	## Examples
+
+      iex> Network.parse_ip("1.2.3.4")
+      {1,2,3,4}
+
+  	"""
 	def parse_ip(ip) do
 		{:ok, tuple} = :inet.parse_ipv4_address(to_char_list(ip))
 		tuple
