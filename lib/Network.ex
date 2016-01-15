@@ -52,16 +52,17 @@ defmodule Network do
 		msg_id = :crypto.hash(:sha256, 
 			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
 			|> Base.encode16
-		Logger.debug "Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
+		Logger.debug "#{reply_port} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
 		{status, line} = case msg do
-			{:ping, correlation_id, {lat, lon}} -> 
+			{:ping, correlation_id, {lat, lon}, {fromlat, fromlon}} -> 
 				JSON.encode(
 					[id: msg_id, 
 					type: :ping, 
 					ttl: ttl,
 					correlationid: correlation_id, 
 					replyport: reply_port, 
-					latlon: [lat: lat, lon: lon]])
+					latlon: [lat: lat, lon: lon],
+					fromlatlon: [lat: fromlat, lon: fromlon]])
 			{:pong, correlation_id, new_link} -> 
 				JSON.encode(
 					[id: msg_id, 
@@ -90,7 +91,11 @@ defmodule Network do
 			:ping ->
 				correlation_id = msg["correlationid"]
 				if (correlation_id == nil) do correlation_id = msg["id"] end
-				{:ping, correlation_id, {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}, []}
+				{:ping, 
+					correlation_id, 
+					{address, msg["replyport"], {msg["fromlatlon"]["lat"], msg["fromlatlon"]["lon"]}},
+					{msg["latlon"]["lat"], msg["latlon"]["lon"]},
+					[]}
 			:pong ->
 				[ip, port, latlon] = msg["link"]
 				if (ip == nil) do # pong is direct neighbour, doesnt know his own IP

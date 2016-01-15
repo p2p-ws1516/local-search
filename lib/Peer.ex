@@ -17,9 +17,10 @@ defmodule Peer do
   end
 
   def init( state ) do
-    state = Map.put( state, :links, [] )
+    state = Map.put( state, :links, HashSet.new )
     state = Map.put( state, :mymessages, MessageStore.empty )
     state = Map.put( state, :othermessages, MessageStore.empty )
+    
     import Supervisor.Spec
 
     children = [
@@ -55,20 +56,29 @@ defmodule Peer do
     GenServer.call(peer_pid, {:leave })
   end
 
+  def suggest_link( pid, link ) do
+    GenServer.cast(pid, {:newlink, link })
+  end
+
   def get_links( pid ) do
     GenServer.call(pid, { :get_links })
   end
 
-  def handle_cast( { :ping, msg_id, from_link, req_options}, state) do
-      this = self()
-      spawn_link fn -> Joining.handle_join(msg_id, from_link, state, req_options) end
-      {:noreply, state}
+  def handle_cast( { :ping, msg_id, from_link, source_latlon, req_options}, state) do
+    this = self()
+    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_latlon, state, req_options) end
+    {:noreply, state}
   end
   
+  def handle_cast( { :newlink, link }, state ) do
+    state = add_link(state, link)
+    {:noreply, state}
+  end
+
   def handle_cast( { :pong, correlation_id, link}, state) do
       cond do
         MessageStore.is_own_message(state, correlation_id) ->
-          state = Map.update!(state, :links, fn links -> [link | links] end)
+          state = add_link(state, link)
           Logger.info "Current list of links #{inspect Map.get(state, :links)}"
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
@@ -93,6 +103,13 @@ defmodule Peer do
     IO.puts "---d-d-d-d #{inspect anything}"
     
      {:noreply, state}
+  end
+
+  defp add_link(state, link) do
+    if Set.size(state.links) < state.config[:maxlinks] do
+      state = Map.update!(state, :links, fn links -> Set.put(links, link) end)
+    end
+    state
   end
 
   defp format_latlon({lat, lon}) do
