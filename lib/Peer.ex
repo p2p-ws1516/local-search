@@ -17,18 +17,42 @@ defmodule Peer do
   end
 
   def init( state ) do
-    this = self
     state = Map.put( state, :links, [] )
-    
+    state = Map.put( state, :mymessages, MessageStore.empty )
+    state = Map.put( state, :othermessages, MessageStore.empty )
+    import Supervisor.Spec
+
+    children = [
+      supervisor(Task.Supervisor, []),
+      worker(Task, 
+        [Network, :listen, [self, state.listen_port]], 
+        id: :listener,
+        restart: :transient)
+    ]
+
+    opts = [strategy: :one_for_one ]
+
     unless( Map.has_key?( state, :bootstrap) ) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
     else
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
-      spawn_link fn -> Joining.join(this, hd(state.bootstrap), state.location, state.listen_port) end
+      children = 
+        [ worker(Task, 
+          [Joining, :join, [self, state, hd(state.bootstrap), state.location, state.listen_port]], 
+          id: :joining, 
+          restart: :transient) | children ]
     end
-    
-    spawn_link fn -> Network.listen(this, state.listen_port) end
+    {status, suppid} = Supervisor.start_link(children, opts)
+    state = Map.put(state, :supervisor, suppid)
     {:ok, state }
+  end
+
+  def query(peer_pid, latlon, query) do
+
+  end
+
+  def leave(peer_pid) do
+    GenServer.call(peer_pid, {:leave })
   end
 
   def get_links( pid ) do
@@ -37,18 +61,32 @@ defmodule Peer do
 
   def handle_cast( { :ping, msg_id, from_link, req_options}, state) do
       this = self()
-      spawn_link fn -> Joining.handle_join(this, msg_id, from_link, state, req_options) end
+      spawn_link fn -> Joining.handle_join(msg_id, from_link, state, req_options) end
       {:noreply, state}
   end
   
-  def handle_cast( { :pong, msg_id, link}, state) do
-      state = Map.update!(state, :links, fn links -> [link | links] end)
-      Logger.info "Current list of links #{inspect Map.get(state, :links)}"
+  def handle_cast( { :pong, correlation_id, link}, state) do
+      cond do
+        MessageStore.is_own_message(state, correlation_id) ->
+          state = Map.update!(state, :links, fn links -> [link | links] end)
+          Logger.info "Current list of links #{inspect Map.get(state, :links)}"
+        MessageStore.is_other_message(state, correlation_id) ->
+          issuer = MessageStore.get_other_message(state, correlation_id)
+          Joining.reply(correlation_id, issuer, link, state, [])
+        true ->
+          Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
+      end
       {:noreply, state}
   end
 
   def handle_call( { :get_links }, _from, state ) do 
     { :reply, state.links, state }
+  end
+
+  def handle_call( { :leave }, _from, state ) do
+    supervisor = state.supervisor
+    Process.exit(supervisor, :normal)
+    { :stop, :normal, :ok, state}
   end
   
   def handle_info( anything, state ) do 
@@ -59,29 +97,6 @@ defmodule Peer do
 
   defp format_latlon({lat, lon}) do
     "lat: #{lat}, lon: #{lon}"
-  end
-  
-  ######### TODO: refactor to genserver
-
-  def query(peer_pid, latlon, query) do
-
-  end
-
-  def leave(peer_pid) do
-    send(peer_pid, {:leave, self()})
-    receive do
-      {:ok} ->
-        Logger.info "Successfully finished"
-      msg ->
-        Logger.info "Leaving the network failed with #{msg}"
-    end
-  end
-
-  defp leave(requestor, links) do
-    # for each link, tell that you leave
-    # close collections
-    # return to sender
-    send(requestor, {:ok, self()})
   end
 
 end

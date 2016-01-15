@@ -30,13 +30,15 @@ defmodule Network do
 	Reply is returned as a tuple {message_type, content} 
 	"""
 	def send_and_recv_msg({ip_address, port, latlon}, listen_port, msg) do
-		Logger.debug "Sending message #{inspect msg} to #{format({ip_address, port})}"
 		opts = [:binary, packet: :line, active: false]
 		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
 		send_msg(socket, listen_port, msg)
 		read_msg(socket)
 	end
 
+	@doc ~S"""
+	Sends message to specified address without waitung for a reply and returns message id
+	"""
 	def send_msg({ip_address, port, latlon}, listen_port, msg) do
 		opts = [:binary, packet: :line, active: false]
 		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
@@ -44,33 +46,36 @@ defmodule Network do
 	end
 
 	@doc ~S"""
-	Sends message over socket without waiting for a reply
+	Sends message over socket without waiting for a reply and returns the message id
 	"""
 	def send_msg(socket, reply_port, msg, ttl \\ 7) do
-		msg_id = :crypto.hash(:sha256, "whatever") |> Base.encode16
-		Logger.debug "Sending message #{inspect msg}"
+		msg_id = :crypto.hash(:sha256, 
+			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
+			|> Base.encode16
+		Logger.debug "Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
 		{status, line} = case msg do
-			{:ping, {lat, lon}} -> 
+			{:ping, correlation_id, {lat, lon}} -> 
 				JSON.encode(
 					[id: msg_id, 
-					type: "PING", 
-					ttl: ttl, 
+					type: :ping, 
+					ttl: ttl,
+					correlationid: correlation_id, 
 					replyport: reply_port, 
 					latlon: [lat: lat, lon: lon]])
-			{:pong, correlation_id, {lat, lon}} -> 
+			{:pong, correlation_id, new_link} -> 
 				JSON.encode(
 					[id: msg_id, 
 					correlationid: correlation_id, 
-					type: "PONG", 
+					type: :pong, 
 					ttl: ttl, 
 					replyport: reply_port,
-					latlon: 
-					[lat: lat, lon: lon]])
+					link: new_link])
 			_ -> raise "Unknown message #{inspect msg}"
 		end
 		Logger.debug "Sending via TCP #{inspect line}"
 		opts = [:binary, packet: :line, active: false]
 		:gen_tcp.send(socket, line <> "\r\n")
+		msg_id
 	end
 
 	@doc ~S"""
@@ -81,17 +86,33 @@ defmodule Network do
 		{status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
 		{:ok, {address, _}} = :inet.peername(socket)
-		case msg["type"] do
-			"PING" ->
-				{:ping, msg["id"], {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}, []}
-			"PONG" ->
-				{:pong, msg["id"], {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}}
+		case String.to_atom(msg["type"]) do
+			:ping ->
+				correlation_id = msg["correlationid"]
+				if (correlation_id == nil) do correlation_id = msg["id"] end
+				{:ping, correlation_id, {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}, []}
+			:pong ->
+				[ip, port, latlon] = msg["link"]
+				if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
+					ip = address
+					port = msg["replyport"]
+				else
+					ip = List.to_tuple(ip)
+				end
+				latlon = List.to_tuple(latlon)
+				{:pong, msg["correlationid"], {ip, port, latlon}}
 			msg -> 
 				Logger.error "Unexpected network message: [\n#{data}]"
 				{:error, :unknown_command}
 		end
 	end
 
+	@doc ~S"""
+	Extracts the lat/lon from a link tuple
+	"""
+	def latlon({ip, port, latlon}) do
+		latlon
+	end
 
 	@doc ~S"""
   	Formats IP, port and latlon tuple to string.
