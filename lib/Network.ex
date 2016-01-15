@@ -57,7 +57,7 @@ defmodule Network do
 			{:ping, correlation_id, {lat, lon}} -> 
 				JSON.encode(
 					[id: msg_id, 
-					type: "PING", 
+					type: :ping, 
 					ttl: ttl,
 					correlationid: correlation_id, 
 					replyport: reply_port, 
@@ -66,7 +66,7 @@ defmodule Network do
 				JSON.encode(
 					[id: msg_id, 
 					correlationid: correlation_id, 
-					type: "PONG", 
+					type: :pong, 
 					ttl: ttl, 
 					replyport: reply_port,
 					link: new_link])
@@ -86,12 +86,12 @@ defmodule Network do
 		{status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
 		{:ok, {address, _}} = :inet.peername(socket)
-		case msg["type"] do
-			"PING" ->
+		case String.to_atom(msg["type"]) do
+			:ping ->
 				correlation_id = msg["correlationid"]
 				if (correlation_id == nil) do correlation_id = msg["id"] end
 				{:ping, correlation_id, {address, msg["replyport"], {msg["latlon"]["lat"], msg["latlon"]["lon"]}}, []}
-			"PONG" ->
+			:pong ->
 				[ip, port, latlon] = msg["link"]
 				if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
 					ip = address
