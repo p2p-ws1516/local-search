@@ -29,20 +29,20 @@ defmodule Network do
 	Sends msg to {ip_address, port} and waits synchronously for reply
 	Reply is returned as a tuple {message_type, content} 
 	"""
-	def send_and_recv_msg({ip_address, port, latlon}, listen_port, my_latlon, msg) do
+	def send_and_recv_msg({ip_address, port, latlon}, listen_port, my_latlon, msg, config) do
 		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
 		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
-		send_msg(socket, listen_port, my_latlon, msg)
+		send_msg(socket, listen_port, my_latlon, msg, config)
 		read_msg(socket)
 	end
 
 	@doc ~S"""
 	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	def send_msg({ip_address, port, latlon}, listen_port, my_latlon, msg) do
+	def send_msg({ip_address, port, latlon}, listen_port, my_latlon, msg, config) do
 		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
 		case :gen_tcp.connect(format_ip(ip_address), port, opts) do
-			{:ok, socket} -> send_msg(socket, listen_port, my_latlon, msg)
+			{:ok, socket} -> send_msg(socket, listen_port, my_latlon, msg, config)
 			error -> raise "Error #{inspect error} from #{inspect self}, at port #{listen_port} connecting to #{Network.format({ip_address, port, latlon})}" 
 		end
 	end
@@ -50,7 +50,7 @@ defmodule Network do
 	@doc ~S"""
 	Sends message over socket without waiting for a reply and returns the message id
 	"""
-	def send_msg(socket, reply_port, my_latlon, msg, ttl \\ 7) do
+	def send_msg(socket, reply_port, my_latlon, msg, config) do
 		msg_id = :crypto.hash(:sha256, 
 			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
 			|> Base.encode16
@@ -60,7 +60,7 @@ defmodule Network do
 				JSON.encode(
 					[id: msg_id, 
 					type: :ping, 
-					ttl: ttl,
+					ttl: config[:ttl],
 					correlationid: correlation_id, 
 					replyport: reply_port,
 					latlon: my_latlon,
@@ -70,7 +70,7 @@ defmodule Network do
 					[id: msg_id, 
 					correlationid: correlation_id, 
 					type: :pong, 
-					ttl: ttl, 
+					ttl: config[:ttl], 
 					replyport: reply_port,
 					link: new_link])
 			_ -> raise "Unknown message #{inspect msg}"
@@ -115,7 +115,9 @@ defmodule Network do
 					ip = List.to_tuple(ip)
 				end
 				latlon = List.to_tuple(latlon)
-				{:pong, msg["correlationid"], {ip, port, latlon}}
+				{:pong, 
+					msg["correlationid"], 
+					{ip, port, latlon}}
 			msg -> 
 				Logger.error "Unexpected network message: [\n#{data}]"
 				{:error, :unknown_command}
