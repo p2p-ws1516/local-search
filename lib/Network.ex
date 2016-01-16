@@ -29,40 +29,42 @@ defmodule Network do
 	Sends msg to {ip_address, port} and waits synchronously for reply
 	Reply is returned as a tuple {message_type, content} 
 	"""
-	def send_and_recv_msg({ip_address, port, latlon}, listen_port, msg) do
-		opts = [:binary, packet: :line, active: false]
+	def send_and_recv_msg({ip_address, port, latlon}, listen_port, my_latlon, msg) do
+		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
 		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
-		send_msg(socket, listen_port, msg)
+		send_msg(socket, listen_port, my_latlon, msg)
 		read_msg(socket)
 	end
 
 	@doc ~S"""
 	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	def send_msg({ip_address, port, latlon}, listen_port, msg) do
-		opts = [:binary, packet: :line, active: false]
-		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
-		send_msg(socket, listen_port, msg)
+	def send_msg({ip_address, port, latlon}, listen_port, my_latlon, msg) do
+		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
+		case :gen_tcp.connect(format_ip(ip_address), port, opts) do
+			{:ok, socket} -> send_msg(socket, listen_port, my_latlon, msg)
+			error -> raise "Error #{inspect error} from #{inspect self}, at port #{listen_port} connecting to #{Network.format({ip_address, port, latlon})}" 
+		end
 	end
 
 	@doc ~S"""
 	Sends message over socket without waiting for a reply and returns the message id
 	"""
-	def send_msg(socket, reply_port, msg, ttl \\ 7) do
+	def send_msg(socket, reply_port, my_latlon, msg, ttl \\ 7) do
 		msg_id = :crypto.hash(:sha256, 
 			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
 			|> Base.encode16
 		Logger.debug "#{reply_port} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
 		{status, line} = case msg do
-			{:ping, correlation_id, {lat, lon}, {fromlat, fromlon}} -> 
+			{:ping, correlation_id, source_link} -> 
 				JSON.encode(
 					[id: msg_id, 
 					type: :ping, 
 					ttl: ttl,
 					correlationid: correlation_id, 
-					replyport: reply_port, 
-					latlon: [lat: lat, lon: lon],
-					fromlatlon: [lat: fromlat, lon: fromlon]])
+					replyport: reply_port,
+					latlon: my_latlon,
+					sourcelink: source_link])
 			{:pong, correlation_id, new_link} -> 
 				JSON.encode(
 					[id: msg_id, 
@@ -91,10 +93,18 @@ defmodule Network do
 			:ping ->
 				correlation_id = msg["correlationid"]
 				if (correlation_id == nil) do correlation_id = msg["id"] end
+				[source_ip, source_port, source_latlon] = msg["sourcelink"]
+				if (source_ip == nil) do # ping from direct neighbour, doesnt know his own IP
+					source_ip = address
+					source_port = msg["replyport"]
+				else
+					source_ip = List.to_tuple(source_ip)
+				end
+				source_latlon = List.to_tuple(source_latlon) 
 				{:ping, 
 					correlation_id, 
-					{address, msg["replyport"], {msg["fromlatlon"]["lat"], msg["fromlatlon"]["lon"]}},
-					{msg["latlon"]["lat"], msg["latlon"]["lon"]},
+					{address, msg["replyport"], List.to_tuple(msg["latlon"])},
+					{source_ip, source_port, source_latlon},
 					[]}
 			:pong ->
 				[ip, port, latlon] = msg["link"]

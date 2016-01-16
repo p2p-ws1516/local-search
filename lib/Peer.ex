@@ -64,9 +64,9 @@ defmodule Peer do
     GenServer.call(pid, { :get_links })
   end
 
-  def handle_cast( { :ping, msg_id, from_link, source_latlon, req_options}, state) do
+  def handle_cast( { :ping, msg_id, from_link, source_link, req_options}, state) do
     this = self()
-    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_latlon, state, req_options) end
+    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, req_options) end
     {:noreply, state}
   end
   
@@ -82,6 +82,7 @@ defmodule Peer do
           Logger.info "Current list of links #{inspect Map.get(state, :links)}"
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
+          IO.puts inspect issuer
           Joining.reply(correlation_id, issuer, link, state, [])
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
@@ -106,7 +107,8 @@ defmodule Peer do
   end
 
   defp add_link(state, link) do
-    if Set.size(state.links) < state.config[:maxlinks] do
+    if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
+      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
       state = Map.update!(state, :links, fn links -> Set.put(links, link) end)
     end
     state
