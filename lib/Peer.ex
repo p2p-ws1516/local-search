@@ -18,9 +18,11 @@ defmodule Peer do
 
   def init( state ) do
     state = Map.put( state, :links, HashSet.new )
+    state = Map.put( state, :pending_links, HashSet.new )
     state = Map.put( state, :mymessages, MessageStore.empty )
     state = Map.put( state, :othermessages, MessageStore.empty )
-    
+    state = Map.put( state, :status, :init)
+
     import Supervisor.Spec
 
     children = [
@@ -43,8 +45,11 @@ defmodule Peer do
           id: :joining, 
           restart: :transient) | children ]
     end
-    {status, suppid} = Supervisor.start_link(children, opts)
+    {_, suppid} = Supervisor.start_link(children, opts)
     state = Map.put(state, :supervisor, suppid)
+
+    :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
+
     {:ok, state }
   end
 
@@ -82,11 +87,16 @@ defmodule Peer do
           Logger.info "Current list of links #{inspect Map.get(state, :links)}"
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          IO.puts inspect issuer
           Joining.reply(correlation_id, issuer, link, state, msg_props)
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end
+      {:noreply, state}
+  end
+
+  def handle_cast( { :startup_finished }, state) do
+      state = Joining.select_links(state)
+      state = Map.put(state, :status, :ready)
       {:noreply, state}
   end
 
@@ -109,7 +119,12 @@ defmodule Peer do
   defp add_link(state, link) do
     if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
       Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
-      state = Map.update!(state, :links, fn links -> Set.put(links, link) end)
+      if (state.status == :init) do
+        key = :pending_links
+      else
+        key = :links
+      end
+      state = Map.update!(state, key, fn links -> Set.put(links, link) end)
     end
     state
   end

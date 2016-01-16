@@ -94,7 +94,6 @@ defmodule Network do
 					source_ip = List.to_tuple(source_ip)
 				end
 				source_latlon = List.to_tuple(source_latlon) 
-				IO.puts "Foooooo #{inspect props}"
 				{:ping, 
 					correlation_id, 
 					{address, props[:replyport], List.to_tuple(props[:latlon])},

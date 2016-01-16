@@ -1,5 +1,6 @@
 defmodule JoiningTest do
   use ExUnit.Case
+  doctest Joining
 
   test "Joining of one peer" do
     peer1 = peer_join(1, [init: true])
@@ -70,6 +71,19 @@ defmodule JoiningTest do
     :ok = Peer.leave( peer3 )
   end
 
+  test "New peer should select maxlinks random peers on startup" do
+    bootstrap_node = peer_join(0, [init: true])
+    peers = for i <- 1..10, do: peer_join(i, [bootstrap: 0, maxlinks: 10]) 
+
+    new_peer = peer_join(99, [bootstrap: 0, maxlinks: 3, ttl: 10])
+    assert Set.size(Peer.get_links( new_peer )) == 3
+
+    :ok = Peer.leave( bootstrap_node )
+    for p <- peers, do: Peer.leave(p)
+    :ok = Peer.leave( new_peer )
+
+  end
+
   #
   # initializes a default peer used for this test
   #
@@ -78,13 +92,14 @@ defmodule JoiningTest do
     maxlinks = Keyword.get(opts, :maxlinks, 5)
     bootstrap_port = 9000 + Keyword.get(opts, :bootstrap, 1)
     init = Keyword.get(opts, :init, false)
-    config = [ttl: ttl, maxlinks: maxlinks]
+    startuptime = Keyword.get(opts, :startuptime, 50)
+    config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime]
     { :ok, peer } = if (init) do
         Peer.join(%{ location: {id,id}, listen_port: (9000 + id), config: config })        
     else
         Peer.join(%{ location: {id,id}, listen_port: (9000 + id), bootstrap: [ {{127,0,0,1}, bootstrap_port} ], config: config })
     end
-    :timer.sleep(50)
+    :timer.sleep(100)
     peer
   end
 

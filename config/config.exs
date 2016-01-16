@@ -2,7 +2,10 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
-config :gnutella, [ttl: 7, maxlinks: 5]
+config :gnutella, 
+	[ttl: 7, 
+	 maxlinks: 5,
+	 startuptime: 5000]
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this

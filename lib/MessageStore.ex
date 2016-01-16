@@ -8,7 +8,6 @@ defmodule MessageStore do
   def put_own_message(state, nil) do
   end
 
-
   def put_own_message(state, msg_id) do
     store = state.mymessages
     Agent.update(store, &Map.put(&1, msg_id, nil))    
