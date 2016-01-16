@@ -5,14 +5,21 @@ defmodule MessageStore do
     pid
   end
 
+  def put_own_message(state, nil) do
+  end
+
+
   def put_own_message(state, msg_id) do
     store = state.mymessages
     Agent.update(store, &Map.put(&1, msg_id, nil))    
   end
 
+  def put_other_message(state, nil, value) do
+  end
+
   def put_other_message(state, msg_id, value) do
-    store = state.othermessages
-    Agent.update(store, &Map.put(&1, msg_id, value))    
+      store = state.othermessages
+      Agent.update(store, &Map.put(&1, msg_id, value))  
   end
 
   def get_other_message(state, msg_id) do

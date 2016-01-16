@@ -39,7 +39,7 @@ defmodule Peer do
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
       children = 
         [ worker(Task, 
-          [Joining, :join, [self, state, hd(state.bootstrap), state.location, state.listen_port]], 
+          [Joining, :join, [self, state, hd(state.bootstrap)]], 
           id: :joining, 
           restart: :transient) | children ]
     end
@@ -64,9 +64,9 @@ defmodule Peer do
     GenServer.call(pid, { :get_links })
   end
 
-  def handle_cast( { :ping, msg_id, from_link, source_link, req_options}, state) do
+  def handle_cast( { :ping, msg_id, from_link, source_link, msg_props}, state) do
     this = self()
-    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, req_options) end
+    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, msg_props) end
     {:noreply, state}
   end
   
@@ -75,7 +75,7 @@ defmodule Peer do
     {:noreply, state}
   end
 
-  def handle_cast( { :pong, correlation_id, link}, state) do
+  def handle_cast( { :pong, correlation_id, link, msg_props}, state) do
       cond do
         MessageStore.is_own_message(state, correlation_id) ->
           state = add_link(state, link)
@@ -83,7 +83,7 @@ defmodule Peer do
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
           IO.puts inspect issuer
-          Joining.reply(correlation_id, issuer, link, state, [])
+          Joining.reply(correlation_id, issuer, link, state, msg_props)
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end

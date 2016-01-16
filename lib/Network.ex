@@ -26,52 +26,42 @@ defmodule Network do
 	end
 
 	@doc ~S"""
-	Sends msg to {ip_address, port} and waits synchronously for reply
-	Reply is returned as a tuple {message_type, content} 
-	"""
-	def send_and_recv_msg({ip_address, port, latlon}, listen_port, my_latlon, msg, config) do
-		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
-		{:ok, socket} = :gen_tcp.connect(format_ip(ip_address), port, opts)
-		send_msg(socket, listen_port, my_latlon, msg, config)
-		read_msg(socket)
-	end
-
-	@doc ~S"""
 	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	def send_msg({ip_address, port, latlon}, listen_port, my_latlon, msg, config) do
-		opts = [:binary, packet: :line, active: false, reuseaddr: :true]
-		case :gen_tcp.connect(format_ip(ip_address), port, opts) do
-			{:ok, socket} -> send_msg(socket, listen_port, my_latlon, msg, config)
-			error -> raise "Error #{inspect error} from #{inspect self}, at port #{listen_port} connecting to #{Network.format({ip_address, port, latlon})}" 
+	def send_msg({ip_address, port, latlon}, msg, msg_props) do
+		if msg_props[:ttl] == 0 do
+			nil
+		else
+			opts = [:binary, packet: :line, active: false, reuseaddr: :true]
+			case :gen_tcp.connect(format_ip(ip_address), port, opts) do
+				{:ok, socket} -> send_impl(socket, msg, msg_props)
+				error -> raise "Error #{inspect error} from #{inspect self}, connecting to #{Network.format({ip_address, port, latlon})}" 
+			end
 		end
 	end
 
 	@doc ~S"""
 	Sends message over socket without waiting for a reply and returns the message id
 	"""
-	def send_msg(socket, reply_port, my_latlon, msg, config) do
+	defp send_impl(socket, msg, msg_props) do
 		msg_id = :crypto.hash(:sha256, 
 			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
 			|> Base.encode16
-		Logger.debug "#{reply_port} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
+		Logger.debug "#{msg_props[:replyport]} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
 		{status, line} = case msg do
 			{:ping, correlation_id, source_link} -> 
 				JSON.encode(
 					[id: msg_id, 
 					type: :ping, 
-					ttl: config[:ttl],
 					correlationid: correlation_id, 
-					replyport: reply_port,
-					latlon: my_latlon,
+					props: msg_props,
 					sourcelink: source_link])
 			{:pong, correlation_id, new_link} -> 
 				JSON.encode(
 					[id: msg_id, 
 					correlationid: correlation_id, 
 					type: :pong, 
-					ttl: config[:ttl], 
-					replyport: reply_port,
+					props: msg_props,
 					link: new_link])
 			_ -> raise "Unknown message #{inspect msg}"
 		end
@@ -89,6 +79,9 @@ defmodule Network do
 		{status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
 		{:ok, {address, _}} = :inet.peername(socket)
+		props = props(msg)
+		props = Map.update!(props, :ttl, fn ttl -> ttl - 1 end)
+		props = Map.update!(props, :hopcount, fn hc -> hc + 1 end)
 		case String.to_atom(msg["type"]) do
 			:ping ->
 				correlation_id = msg["correlationid"]
@@ -96,32 +89,51 @@ defmodule Network do
 				[source_ip, source_port, source_latlon] = msg["sourcelink"]
 				if (source_ip == nil) do # ping from direct neighbour, doesnt know his own IP
 					source_ip = address
-					source_port = msg["replyport"]
+					source_port = props[:replyport]
 				else
 					source_ip = List.to_tuple(source_ip)
 				end
 				source_latlon = List.to_tuple(source_latlon) 
+				IO.puts "Foooooo #{inspect props}"
 				{:ping, 
 					correlation_id, 
-					{address, msg["replyport"], List.to_tuple(msg["latlon"])},
+					{address, props[:replyport], List.to_tuple(props[:latlon])},
 					{source_ip, source_port, source_latlon},
-					[]}
+					props
+				}
 			:pong ->
 				[ip, port, latlon] = msg["link"]
 				if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
 					ip = address
-					port = msg["replyport"]
+					port = props[:replyport]
 				else
 					ip = List.to_tuple(ip)
 				end
 				latlon = List.to_tuple(latlon)
 				{:pong, 
 					msg["correlationid"], 
-					{ip, port, latlon}}
+					{ip, port, latlon},
+					props}
 			msg -> 
 				Logger.error "Unexpected network message: [\n#{data}]"
 				{:error, :unknown_command}
 		end
+	end
+
+	@doc ~S"""
+	extracts message properties from JSON message
+	"""
+	def props(json_msg) do
+		for {key, val} <- json_msg["props"], into: %{}, do: {String.to_atom(key), val}
+	end
+
+	@doc ~S"""
+	resets ttl and hopcount to default
+	"""
+	def reset_props(props, config) do
+		props = Map.put(props, :ttl, config[:ttl])
+		props = Map.put(props, :hopcount, 0)
+		props
 	end
 
 	@doc ~S"""
