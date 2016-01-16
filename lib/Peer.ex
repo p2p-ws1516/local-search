@@ -119,11 +119,7 @@ defmodule Peer do
   defp add_link(state, link) do
     if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
       Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
-      if (state.status == :init) do
-        key = :pending_links
-      else
-        key = :links
-      end
+      key = if (state.status == :init) do :pending_links else :links end
       state = Map.update!(state, key, fn links -> Set.put(links, link) end)
     end
     state
