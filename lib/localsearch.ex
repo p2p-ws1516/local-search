@@ -2,21 +2,21 @@ defmodule Main do
 
 	def main(args) do
 		{port, init, bootstrap_ip, bootstrap_port, latlon} = args |> parse_args
-    config = Application.get_all_env :gnutella
+    	config = Application.get_all_env :gnutella
 		{:ok, pid} = if init do
-      Peer.join([%{
-      	location: latlon,
-        listen_port: port,
-        config: config
-      }, config]) 
-      else
-      Peer.join([%{
-        location: latlon,
-        listen_port: port,
-        config: config,
-        bootstrap: [ { bootstrap_ip,bootstrap_port } ]
-      }, config]) 
-    end
+      		Peer.join(%{
+	      	location: latlon,
+	        listen_port: port,
+	        config: config
+	      }) 
+	    else
+	      Peer.join(%{
+	        location: latlon,
+	        listen_port: port,
+	        config: config,
+	        bootstrap: [ { bootstrap_ip,bootstrap_port } ]
+	      }) 
+    	end
     Agent.start_link fn -> CLI.repl(pid) end
 	end
   

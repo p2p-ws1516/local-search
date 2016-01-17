@@ -2,7 +2,7 @@
 # Module for Network I/O (socket handling, IP addresses)
 #
 defmodule Network do
-	
+
 	require Logger	
 
 	@doc ~S"""
@@ -19,7 +19,10 @@ defmodule Network do
 	Accepts ingoing TCP connections and sends content to reply_to-address
 	"""
 	defp loop_acceptor(reply_to, socket) do
-		{:ok, client} = :gen_tcp.accept(socket)
+		client = case :gen_tcp.accept(socket) do
+			{:ok, client} -> client
+			error -> raise error
+		end
 		msg = read_msg(client)
 		GenServer.cast(reply_to, msg)
 		loop_acceptor(reply_to, socket)
@@ -35,7 +38,7 @@ defmodule Network do
 			opts = [:binary, packet: :line, active: false, reuseaddr: :true]
 			case :gen_tcp.connect(format_ip(ip_address), port, opts) do
 				{:ok, socket} -> send_impl(socket, msg, msg_props)
-				error -> raise "Error #{inspect error} from #{inspect self}, connecting to #{Network.format({ip_address, port, latlon})}" 
+				error -> exit({:brokenlink, {ip_address, port, latlon}}) 
 			end
 		end
 	end
@@ -75,7 +78,10 @@ defmodule Network do
 	Reads one line from socket and converts it to {message_type, content} 
 	"""
 	def read_msg(socket) do
-		{:ok, data} = :gen_tcp.recv(socket, 0)
+		data = case :gen_tcp.recv(socket, 0) do
+			{:ok, data} -> data
+			error -> raise error 
+		end
 		{status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
 		{:ok, {address, _}} = :inet.peername(socket)

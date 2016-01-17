@@ -84,6 +84,28 @@ defmodule JoiningTest do
 
   end
 
+  test "Peers should handle partial failure on startup" do
+    peer1 = peer_join(1, [init: true])
+    peer2 = peer_join(2, [bootstrap: 1])
+    peer3 = peer_join(3, [bootstrap: 1])  
+
+    :ok = Peer.leave(peer3)
+
+    # not yet realized that 3 is gone
+    assert Peer.get_links( peer1 ) == set_of([2, 3])
+    assert Peer.get_links( peer2 ) == set_of([1, 3])
+
+    peer4 = peer_join(4, [bootstrap: 1])
+    assert Peer.get_links( peer1 ) == set_of([2, 4])
+    assert Peer.get_links( peer2 ) == set_of([1, 4])
+    assert Peer.get_links( peer4 ) == set_of([1, 2])
+    
+    :ok = Peer.leave(peer1)
+    :ok = Peer.leave(peer2)
+    :ok = Peer.leave(peer4)
+
+  end
+
   #
   # initializes a default peer used for this test
   #
@@ -92,14 +114,14 @@ defmodule JoiningTest do
     maxlinks = Keyword.get(opts, :maxlinks, 5)
     bootstrap_port = 9000 + Keyword.get(opts, :bootstrap, 1)
     init = Keyword.get(opts, :init, false)
-    startuptime = Keyword.get(opts, :startuptime, 50)
+    startuptime = Keyword.get(opts, :startuptime, 25)
     config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime]
     { :ok, peer } = if (init) do
         Peer.join(%{ location: {id,id}, listen_port: (9000 + id), config: config })        
     else
         Peer.join(%{ location: {id,id}, listen_port: (9000 + id), bootstrap: [ {{127,0,0,1}, bootstrap_port} ], config: config })
     end
-    :timer.sleep(100)
+    :timer.sleep(50)
     peer
   end
 

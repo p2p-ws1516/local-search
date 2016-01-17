@@ -17,6 +17,7 @@ defmodule Peer do
   end
 
   def init( state ) do
+    Process.flag(:trap_exit, true)
     state = Map.put( state, :links, HashSet.new )
     state = Map.put( state, :pending_links, HashSet.new )
     state = Map.put( state, :mymessages, MessageStore.empty )
@@ -65,6 +66,10 @@ defmodule Peer do
     GenServer.cast(pid, {:newlink, link })
   end
 
+  def link_broken(pid, link) do
+    GenServer.cast(pid, {:brokenlink, link})
+  end
+
   def get_links( pid ) do
     GenServer.call(pid, { :get_links })
   end
@@ -106,16 +111,24 @@ defmodule Peer do
     { :reply, state.links, state }
   end
 
+  def handle_cast( {:brokenlink, link}, state ) do 
+    Logger.error "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link}"
+    state = Map.update!(state, :links, fn links -> Set.delete(links, link) end)
+     {:noreply, state}
+  end
+
   def handle_call( { :leave }, _from, state ) do
     supervisor = state.supervisor
     Process.exit(supervisor, :normal)
     { :stop, :normal, :ok, state}
   end
-  
+
+  def handle_info( {:EXIT, pid, :normal }, state ) do 
+    {:noreply, state}
+  end
+
   def handle_info( anything, state ) do 
-    IO.puts "---d-d-d-d #{inspect anything}"
-    
-     {:noreply, state}
+    { :stop, anything, state}
   end
 
   defp add_pending_link(state, link) do
