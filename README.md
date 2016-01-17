@@ -34,15 +34,18 @@
 ### Iteration 1.2
 
 * Implement Gnutella 0.4 -> Flo (by 2016-01-19)
-    * Joining algorithm
+    * Joining algorithm **done**
     * Query algorithm
-* Deal with partial failure (e.g. broken TCP connections)
+* Deal with partial failure (e.g. broken TCP connections) **done**
 * Finish REPL
 
 ### Iteration 1.3
 
+* Filter queries based on location
 * Simulate large number of peers
 * Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
+* More error szenarios
+* Check effiency of TCP connection handling
 
 ##Iteration 2
 

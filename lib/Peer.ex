@@ -91,7 +91,7 @@ defmodule Peer do
           state = add_pending_link(state, link)
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          Joining.reply(correlation_id, issuer, link, state, msg_props)
+          Joining.reply(correlation_id, issuer, link, msg_props, state)
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end

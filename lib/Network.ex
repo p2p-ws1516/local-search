@@ -31,8 +31,8 @@ defmodule Network do
 	@doc ~S"""
 	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	def send_msg({ip_address, port, latlon}, msg, msg_props) do
-		if msg_props[:ttl] == 0 do
+	def send_msg({ip_address, port, latlon}, msg, msg_props, config) do
+		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= config[:ttl] do
 			nil
 		else
 			opts = [:binary, packet: :line, active: false, reuseaddr: :true]

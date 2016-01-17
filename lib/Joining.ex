@@ -3,7 +3,7 @@ defmodule Joining do
 	def join(peer, state, {bip, bport}) do
 		msg_props = %{replyport: state.listen_port, latlon: state.location}
 		msg_props = Network.reset_props(msg_props, state.config)
-		msg_id = Network.send_msg({bip, bport, nil}, {:ping, nil, {nil, state.listen_port, state.location}}, msg_props )
+		msg_id = Network.send_msg({bip, bport, nil}, {:ping, nil, {nil, state.listen_port, state.location}}, msg_props, state.config )
 		MessageStore.put_own_message(state, msg_id)
 	end
 
@@ -69,19 +69,19 @@ defmodule Joining do
 			MessageStore.put_other_message(state, msg_id, source_link)
 			msg_props = Map.put(msg_props, :replyport, state.listen_port)
 			msg_props = Map.put(msg_props, :latlon, state.location)
-			reply(msg_id, from_link, {nil, state.listen_port, state.location}, state, msg_props)
+			reply(msg_id, from_link, {nil, state.listen_port, state.location}, msg_props, state)
 			Peer.suggest_link(peer, from_link)
 			Peer.suggest_link(peer, source_link)
 			links = Set.delete(state.links, from_link)
-			send_all(peer, links, {:ping, msg_id, source_link}, msg_props)
+			send_all(peer, links, {:ping, msg_id, source_link}, msg_props, state)
 		end
 	end
 
 	#
 	# FIXME: find a nicer way to propagate process errors to Peer
 	#
-	defp send_all(peer, links, msg, msg_props) do
-		Enum.map( links, fn link -> spawn_link(fn -> Network.send_msg(link, msg, msg_props) end) end)
+	defp send_all(peer, links, msg, msg_props, state) do
+		Enum.map( links, fn link -> spawn_link(fn -> Network.send_msg(link, msg, msg_props, state.config) end) end)
 		for _ <- links, do: (
 			receive do
 				{:EXIT, pid, {:brokenlink, link}} -> Peer.link_broken(peer, link)
@@ -91,9 +91,9 @@ defmodule Joining do
 		 )
 	end
 
-	def reply(correlation_id, from_link, new_link, state, msg_props) do
+	def reply(correlation_id, from_link, new_link, msg_props, state) do
 		msg_props = Network.reset_props(msg_props, state.config)
-		Network.send_msg(from_link, {:pong, correlation_id, new_link}, msg_props)
+		Network.send_msg(from_link, {:pong, correlation_id, new_link}, msg_props, state.config)
 	end
 
 end
