@@ -15,7 +15,7 @@
     * run *./localsearch --port 9999 --init* to start initial peer
     * run *./localsearch --port 8888 --bootstrap * to connect to this peer
     * **Note**: everything (including ports) is hardcoded in *localsearch.ex*, so it works only with these port numbers and on a single machine
-* Test-Driven / Unit tests -> Denis
+* Test-Driven / Unit tests -> Denis **done**
 * REPL / CLI -> Denis **done** 
     * open client
         * if not present: ask for bootstrap IP
@@ -34,7 +34,15 @@
 ### Iteration 1.2
 
 * Implement Gnutella 0.4 -> Flo (by 2016-01-19)
+    * Joining algorithm
+    * Query algorithm
 * Deal with partial failure (e.g. broken TCP connections)
+* Finish REPL
+
+### Iteration 1.3
+
+* Simulate large number of peers
+* Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
 
 ##Iteration 2
 
