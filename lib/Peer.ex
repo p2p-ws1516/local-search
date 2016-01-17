@@ -76,15 +76,14 @@ defmodule Peer do
   end
   
   def handle_cast( { :newlink, link }, state ) do
-    state = add_link(state, link)
+    state = add_pending_link(state, link)
     {:noreply, state}
   end
 
   def handle_cast( { :pong, correlation_id, link, msg_props}, state) do
       cond do
         MessageStore.is_own_message(state, correlation_id) ->
-          state = add_link(state, link)
-          Logger.info "Current list of links #{inspect Map.get(state, :links)}"
+          state = add_pending_link(state, link)
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
           Joining.reply(correlation_id, issuer, link, state, msg_props)
@@ -97,6 +96,9 @@ defmodule Peer do
   def handle_cast( { :startup_finished }, state) do
       state = Joining.select_links(state)
       state = Map.put(state, :status, :ready)
+      Logger.info (
+        "#{inspect self} at port #{inspect state.listen_port} finished startup\n"<>
+        "Links:\n#{Enum.sort(state.links) |> Enum.map(fn l -> "\t" <> to_string(Network.format(l)) end) |> Enum.join("\n")}")
       {:noreply, state}
   end
 
@@ -116,7 +118,7 @@ defmodule Peer do
      {:noreply, state}
   end
 
-  defp add_link(state, link) do
+  defp add_pending_link(state, link) do
     if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
       Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
       key = if (state.status == :init) do :pending_links else :links end
