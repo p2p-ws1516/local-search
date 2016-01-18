@@ -36,7 +36,7 @@
 * Implement Gnutella 0.4 -> Flo (by 2016-01-19)
     * Joining algorithm *partially done*
         *  the current implementation is "unfair" because peers remember only the first "maxlinks" they have seen
-        *  Szenario: 
+        *  scenario: 
             *  maxlinks = 5
             *  5 peers join and form a full graph
             *  6th peer joins, floods network and chooses the other 5 as his neighbours
@@ -55,7 +55,7 @@
 * Examine more partial failure scenarios
 * Simulate large number of peers
 * Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
-* Check effiency of TCP connection handling
+* Check efficiency of TCP connection handling
 
 ##Iteration 2
 
