@@ -37,9 +37,9 @@
     * Joining algorithm *partially done*
         *  the current implementation is "unfair" because peers remember only the first "maxlinks" they have seen
         *  scenario: 
-            *  maxlinks = 5
+            *  maxlinks = 4
             *  5 peers join and form a full graph
-            *  6th peer joins, floods network and chooses the other 5 as his neighbours
+            *  6th peer joins, floods network and chooses 4 of the other 5 as his neighbours
             *  however, peer 1 to 5 do not remember 6 and won't forward messages
             *  thus, most queries get lost in the initial 5-peer-clique
     * Query algorithm **done**
