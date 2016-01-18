@@ -3,8 +3,8 @@
 use Mix.Config
 
 config :gnutella, 
-	[ttl: 7, 
-	 maxlinks: 5,
+	[ttl: 7,
+	 initlinks: 5,
 	 startuptime: 5000]
 
 # This configuration is loaded before any dependency and is restricted

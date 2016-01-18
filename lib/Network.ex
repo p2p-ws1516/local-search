@@ -15,13 +15,11 @@ defmodule Network do
 		loop_acceptor(reply_to, socket)
 	end
 
-	@doc ~S"""
-	Accepts ingoing TCP connections and sends content to reply_to-address
-	"""
+	## Accepts ingoing TCP connections and sends content to reply_to-address
 	defp loop_acceptor(reply_to, socket) do
 		client = case :gen_tcp.accept(socket) do
 			{:ok, client} -> client
-			error -> raise error
+			_error -> exit(:shutdown)
 		end
 		msg = read_msg(client)
 		GenServer.cast(reply_to, msg)
@@ -29,29 +27,34 @@ defmodule Network do
 	end
 
 	@doc ~S"""
-	Sends message to specified address without waitung for a reply and returns message id
+	Generates a new message id, that is returned along with all other parameters
 	"""
-	def send_msg({ip_address, port, latlon}, msg, msg_props, config) do
-		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= config[:ttl] do
-			nil
-		else
-			opts = [:binary, packet: :line, active: false, reuseaddr: :true]
-			case :gen_tcp.connect(format_ip(ip_address), port, opts) do
-				{:ok, socket} -> send_impl(socket, msg, msg_props)
-				error -> exit({:brokenlink, {ip_address, port, latlon}}) 
-			end
-		end
+	def get_msg_id(msg, _config) do
+		:crypto.hash(:sha256, 
+			"#{inspect msg}#{inspect :inet.getifaddrs}#{inspect :calendar.universal_time()}") 
+			|> Base.encode16
 	end
 
 	@doc ~S"""
-	Sends message over socket without waiting for a reply and returns the message id
+	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	defp send_impl(socket, msg, msg_props) do
-		msg_id = :crypto.hash(:sha256, 
-			"#{inspect msg}#{inspect :inet.peername(socket)}#{inspect :calendar.universal_time()}") 
-			|> Base.encode16
+	def send_msg(msg_id, {ip_address, port, latlon}, msg, msg_props, config) do
+		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= config[:ttl] do
+			nil
+		else
+			opts = [:binary, packet: :line, active: false, reuseaddr: true]
+			socket = case :gen_tcp.connect(Network.format_ip(ip_address), port, opts) do
+				{:ok, socket} -> socket
+				error -> exit({:brokenlink, {ip_address, port, latlon}, error}) 
+			end
+			send_impl(msg_id, socket, msg, msg_props)
+		end
+	end
+
+ 	## Sends message over socket without waiting for a reply and returns the message id
+	defp send_impl(msg_id, socket, msg, msg_props) do
 		Logger.debug "#{msg_props[:replyport]} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
-		{status, line} = case msg do
+		{_status, line} = case msg do
 			{:ping, correlation_id, source_link} -> 
 				JSON.encode(
 					[id: msg_id, 
@@ -66,10 +69,24 @@ defmodule Network do
 					type: :pong, 
 					props: msg_props,
 					link: new_link])
-			_ -> raise "Unknown message #{inspect msg}"
+			{:query, correlation_id, query } ->
+				JSON.encode(
+					[id: msg_id, 
+					correlationid: correlation_id, 
+					type: :query, 
+					props: msg_props,
+					query: query ])
+			{:query_hit, correlation_id, query, owner } ->
+				JSON.encode(
+					[id: msg_id, 
+					correlationid: correlation_id, 
+					type: :query_hit, 
+					props: msg_props,
+					query: query,
+					owner: owner ])
+			_ -> exit({:unknown_message, msg, msg_props})
 		end
 		Logger.debug "Sending via TCP #{inspect line}"
-		opts = [:binary, packet: :line, active: false]
 		:gen_tcp.send(socket, line <> "\r\n")
 		msg_id
 	end
@@ -82,7 +99,7 @@ defmodule Network do
 			{:ok, data} -> data
 			error -> raise error 
 		end
-		{status, msg} = JSON.decode(data)
+		{_status, msg} = JSON.decode(data)
 		Logger.debug "Got via TCP #{inspect msg}"
 		{:ok, {address, _}} = :inet.peername(socket)
 		props = props(msg)
@@ -119,9 +136,32 @@ defmodule Network do
 					msg["correlationid"], 
 					{ip, port, latlon},
 					props}
+			:query ->
+				correlation_id = msg["correlationid"]
+				if (correlation_id == nil) do correlation_id = msg["id"] end
+				{:query, 
+					correlation_id, 
+					{address, props[:replyport], List.to_tuple(props[:latlon])},
+					msg["query"],
+					props
+				}
+			:query_hit ->
+				[ip, port, latlon] = msg["owner"]
+				if (ip == nil) do # owner is direct neighbour, doesnt know his own IP
+					ip = address
+					port = props[:replyport]
+				else
+					ip = List.to_tuple(ip)
+				end
+				latlon = List.to_tuple(latlon)
+				{:query_hit, 
+					msg["correlationid"], 
+					msg["query"],
+					{ip, port, latlon},
+					props
+				}
 			msg -> 
-				Logger.error "Unexpected network message: [\n#{data}]"
-				{:error, :unknown_command}
+				exit({:unknown_message, msg, props})
 		end
 	end
 
@@ -144,7 +184,7 @@ defmodule Network do
 	@doc ~S"""
 	Extracts the lat/lon from a link tuple
 	"""
-	def latlon({ip, port, latlon}) do
+	def latlon({_ip, _port, latlon}) do
 		latlon
 	end
 
