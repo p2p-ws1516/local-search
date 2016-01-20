@@ -23,13 +23,14 @@ defmodule Peer do
     state = Map.put( state, :othermessages, MessageStore.empty )
     state = Map.put( state, :status, :init)
     state = Map.put( state, :inventory, [])
+    state = Map.put( state, :conn_cache, TCPCache.new)
 
     import Supervisor.Spec
 
     children = [
       supervisor(Task.Supervisor, []),
       worker(Task, 
-        [Network, :listen, [self, state.listen_port]], 
+        [Network, :listen, [self, state]], 
         id: :listener,
         restart: :transient)
     ]
@@ -52,6 +53,10 @@ defmodule Peer do
     :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
 
     {:ok, state }
+  end
+
+  def monitor(peer_pid, pid) do
+    GenServer.cast(peer_pid, {:monitor, pid})
   end
 
   def add_item(peer_pid, item) do
@@ -80,6 +85,12 @@ defmodule Peer do
 
   ## asynchronous casts 
 
+  def handle_cast( { :monitor, pid}, state) do
+    Process.monitor(pid)
+    {:noreply, state}
+  end
+  
+
   def handle_cast( { :ping, msg_id, from_link, source_link, msg_props}, state) do
     this = self()
     spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, msg_props) end
@@ -91,13 +102,14 @@ defmodule Peer do
     {:noreply, state}
   end
 
-  def handle_cast( { :pong, correlation_id, link, msg_props}, state) do
+  def handle_cast( { :pong, correlation_id, {ip, port, latlon}, msg_props}, state) do
+      this = self
       cond do
         MessageStore.is_own_message(state, correlation_id) ->
-          state = add_pending_link(state, link)
+          state = add_pending_link(state, {ip, port, latlon})
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          spawn_link fn -> Joining.reply(correlation_id, issuer, link, msg_props, state) end
+          spawn_link fn -> Joining.reply(this, correlation_id, issuer, {ip, port, latlon}, msg_props, state) end
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end
@@ -117,13 +129,14 @@ defmodule Peer do
   end
 
   def handle_cast( { :query_hit, correlation_id, query, owner, msg_props }, state) do
+     this = self
      cond do
         MessageStore.is_own_message(state, correlation_id) ->
           reply_to = MessageStore.get_own_message(state, correlation_id)
           send(reply_to, {:query_hit, query, owner })
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          spawn_link fn -> Query.reply(correlation_id, issuer, query, owner, msg_props, state) end
+          spawn_link fn -> Query.reply(this, correlation_id, issuer, query, owner, msg_props, state) end
         true ->
           Logger.warn "Unexpected query_hit referring to #{inspect correlation_id}"
       end
@@ -131,13 +144,16 @@ defmodule Peer do
   end
 
   def handle_cast( {:brokenlink, link, error }, state ) do 
-    Logger.error "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}"
-    state = Map.update!(state, :links, fn links -> Set.delete(links, link) end)
+    Logger.info "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}"
+    state = Map.update!(state, :links, fn links -> 
+      Enum.into(Enum.filter(links, fn {ip, port, _} -> {ip, port} != link end), HashSet.new) 
+    end)
      {:noreply, state}
   end
 
   def handle_cast( { :startup_finished }, state) do
       state = Joining.select_links(state)
+      Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
       Logger.info (
         "#{inspect self} at port #{inspect state.listen_port} finished startup\n"<>
@@ -159,13 +175,24 @@ defmodule Peer do
   def handle_call( { :leave }, _from, state ) do
     supervisor = state.supervisor
     Process.exit(supervisor, :normal)
+    TCPCache.close_all(state)
+    Logger.info "#{inspect self} at port #{inspect state.listen_port} shutting down"
     { :stop, :normal, :ok, state}
   end
 
   ## handlers for classical Erlang messages
 
-  def handle_info( {:EXIT, _pid, :normal }, state ) do 
+  def handle_info({:EXIT, _pid, :normal }, state ) do 
     {:noreply, state}
+  end
+
+  def handle_info( {:DOWN, _, _, _, :normal}, state ) do
+    {:noreply, state}
+  end
+
+  def handle_info({:DOWN, _, _, _, {:brokenlink, link, error}}, state) do
+    Peer.link_broken(self, link, error)
+     {:noreply, state}
   end
 
   def handle_info({:EXIT, _pid, {:brokenlink, link, error}}, state) do
@@ -173,14 +200,15 @@ defmodule Peer do
      {:noreply, state}
   end
 
-  def handle_info( anything, state ) do 
+  def handle_info( anything, state ) do
+    Logger.info inspect anything
     { :stop, anything, state}
   end
 
   defp add_pending_link(state, link) do
     if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
-      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
       key = if (state.status == :init) do :pending_links else :links end
+      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new #{if key == :pending_links, do: "PENDING"} link #{inspect link}"
       state = Map.update!(state, key, fn links -> Set.put(links, link) end)
     end
     state

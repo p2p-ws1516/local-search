@@ -8,22 +8,30 @@ defmodule Network do
 	@doc ~S"""
 	Listen on port and forward all incoming messages to reply_to-address
 	"""
-	def listen(reply_to, port) do
-		{:ok, socket} = :gen_tcp.listen(port,
+	def listen(reply_to, state) do
+		{:ok, socket} = :gen_tcp.listen(state.listen_port,
 			[:binary, packet: :line, active: false, reuseaddr: true])
-		Logger.debug "Accepting connections on port #{port}"
-		loop_acceptor(reply_to, socket)
+		Logger.debug "Accepting connections on port #{state.listen_port}"
+		loop_acceptor(reply_to, socket, state)
 	end
 
 	## Accepts ingoing TCP connections and sends content to reply_to-address
-	defp loop_acceptor(reply_to, socket) do
+	defp loop_acceptor(reply_to, socket, state) do
 		client = case :gen_tcp.accept(socket) do
 			{:ok, client} -> client
-			_error -> exit(:shutdown)
+			_error -> 
+				exit(:shutdown)
 		end
-		msg = read_msg(client)
+		{:ok, {address, port}} = :inet.peername(client)
+		TCPCache.put(state, address, port, client)
+		TCPCache.use_socket(reply_to, state, address, port, &(loop_read(reply_to, &1)), false)
+		loop_acceptor(reply_to, socket, state)
+	end
+
+	defp loop_read(reply_to, socket) do
+		msg = read_msg(reply_to, socket)
 		GenServer.cast(reply_to, msg)
-		loop_acceptor(reply_to, socket)
+		loop_read(reply_to, socket)
 	end
 
 	@doc ~S"""
@@ -36,18 +44,23 @@ defmodule Network do
 	end
 
 	@doc ~S"""
+	Sends a message to the other address and listens to newly created socket
+	"""
+	def send_and_listen(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) do
+		send_msg(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) 
+		unless msg_id == nil do
+		  TCPCache.use_socket(reply_to, state, ip_address, port, &(loop_read(reply_to, &1)))
+		end
+	end
+
+	@doc ~S"""
 	Sends message to specified address without waitung for a reply and returns message id
 	"""
-	def send_msg(msg_id, {ip_address, port, latlon}, msg, msg_props, config) do
-		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= config[:ttl] do
+	def send_msg(reply_to, msg_id, {ip_address, port, _}, msg, msg_props, state) do
+		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= state.config[:ttl] do
 			nil
 		else
-			opts = [:binary, packet: :line, active: false, reuseaddr: true]
-			socket = case :gen_tcp.connect(Network.format_ip(ip_address), port, opts) do
-				{:ok, socket} -> socket
-				error -> exit({:brokenlink, {ip_address, port, latlon}, error}) 
-			end
-			send_impl(msg_id, socket, msg, msg_props)
+			TCPCache.use_socket(reply_to, state, ip_address, port, fn socket -> send_impl(msg_id, socket, msg, msg_props) end )
 		end
 	end
 
@@ -69,6 +82,12 @@ defmodule Network do
 					type: :pong, 
 					props: msg_props,
 					link: new_link])
+			{:joined} ->
+				JSON.encode(
+					[id: msg_id,
+					 type: :joined,
+					 props: msg_props ]
+				)
 			{:query, correlation_id, query } ->
 				JSON.encode(
 					[id: msg_id, 
@@ -91,77 +110,85 @@ defmodule Network do
 		msg_id
 	end
 
-	@doc ~S"""
-	Reads one line from socket and converts it to {message_type, content} 
-	"""
-	def read_msg(socket) do
+	#
+	# Reads one line from socket and converts it to {message_type, content}
+	# exit_on_failure indicates, if the listening process should terminate, when the socket is broken.
+	# This is usually true for the listen sockets initiated by the process itself, 
+	# whereas termination of connections iniated by other peers is fine  
+	
+	defp read_msg(reply_to, socket) do
+		{:ok, {address, send_port}} = :inet.peername(socket)
 		data = case :gen_tcp.recv(socket, 0) do
 			{:ok, data} -> data
-			error -> raise error 
+			error -> 
+				GenServer.cast(reply_to, {:brokenlink, {address, send_port}, error})
+				exit(:shutdown) 
 		end
-		{_status, msg} = JSON.decode(data)
-		Logger.debug "Got via TCP #{inspect msg}"
-		{:ok, {address, _}} = :inet.peername(socket)
-		props = props(msg)
-		props = Map.update!(props, :ttl, fn ttl -> ttl - 1 end)
-		props = Map.update!(props, :hopcount, fn hc -> hc + 1 end)
-		case String.to_atom(msg["type"]) do
-			:ping ->
-				correlation_id = msg["correlationid"]
-				if (correlation_id == nil) do correlation_id = msg["id"] end
-				[source_ip, source_port, source_latlon] = msg["sourcelink"]
-				if (source_ip == nil) do # ping from direct neighbour, doesnt know his own IP
-					source_ip = address
-					source_port = props[:replyport]
-				else
-					source_ip = List.to_tuple(source_ip)
+		case data do
+			_ -> 
+				{_status, msg} = JSON.decode(data)
+				Logger.debug "Got via TCP #{inspect msg}"
+				props = props(msg)
+				props = Map.update!(props, :ttl, fn ttl -> ttl - 1 end)
+				props = Map.update!(props, :hopcount, fn hc -> hc + 1 end)
+				case String.to_atom(msg["type"]) do
+					:ping ->
+						correlation_id = msg["correlationid"]
+						if (correlation_id == nil) do correlation_id = msg["id"] end
+						[source_ip, source_port, source_latlon] = msg["sourcelink"]
+						if (source_ip == nil) do # ping from direct neighbour, doesnt know his own IP
+							source_ip = address
+							source_port = send_port
+						else
+							source_ip = List.to_tuple(source_ip)
+						end
+						source_latlon = List.to_tuple(source_latlon)
+						{:ping, 
+							correlation_id, 
+							{address, send_port, List.to_tuple(props[:latlon])},
+							{source_ip, source_port, source_latlon},
+							props
+						}
+					:pong ->
+						[ip, port, latlon] = msg["link"]
+						if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
+							ip = address
+						else
+							ip = List.to_tuple(ip)
+						end
+						latlon = List.to_tuple(latlon)
+						{:pong, 
+							msg["correlationid"], 
+							{ip, port, latlon},
+							props}
+					:joined ->
+						{:newlink, {address, send_port, List.to_tuple(props[:latlon])}}
+					:query ->
+						correlation_id = msg["correlationid"]
+						if (correlation_id == nil) do correlation_id = msg["id"] end
+						{:query, 
+							correlation_id, 
+							{address, send_port, List.to_tuple(props[:latlon])},
+							msg["query"],
+							props
+						}
+					:query_hit ->
+						[ip, port, latlon] = msg["owner"]
+						if (ip == nil) do # owner is direct neighbour, doesnt know his own IP
+							ip = address
+						else
+							ip = List.to_tuple(ip)
+						end
+						latlon = List.to_tuple(latlon)
+						{:query_hit, 
+							msg["correlationid"], 
+							msg["query"],
+							{ip, port, latlon},
+							props
+						}
+					msg -> 
+						exit({:unknown_message, msg, props})
 				end
-				source_latlon = List.to_tuple(source_latlon) 
-				{:ping, 
-					correlation_id, 
-					{address, props[:replyport], List.to_tuple(props[:latlon])},
-					{source_ip, source_port, source_latlon},
-					props
-				}
-			:pong ->
-				[ip, port, latlon] = msg["link"]
-				if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
-					ip = address
-					port = props[:replyport]
-				else
-					ip = List.to_tuple(ip)
-				end
-				latlon = List.to_tuple(latlon)
-				{:pong, 
-					msg["correlationid"], 
-					{ip, port, latlon},
-					props}
-			:query ->
-				correlation_id = msg["correlationid"]
-				if (correlation_id == nil) do correlation_id = msg["id"] end
-				{:query, 
-					correlation_id, 
-					{address, props[:replyport], List.to_tuple(props[:latlon])},
-					msg["query"],
-					props
-				}
-			:query_hit ->
-				[ip, port, latlon] = msg["owner"]
-				if (ip == nil) do # owner is direct neighbour, doesnt know his own IP
-					ip = address
-					port = props[:replyport]
-				else
-					ip = List.to_tuple(ip)
-				end
-				latlon = List.to_tuple(latlon)
-				{:query_hit, 
-					msg["correlationid"], 
-					msg["query"],
-					{ip, port, latlon},
-					props
-				}
-			msg -> 
-				exit({:unknown_message, msg, props})
 		end
 	end
 

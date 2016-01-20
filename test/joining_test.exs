@@ -7,53 +7,61 @@ defmodule JoiningTest do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [])
 
-    assert Peer.get_links( peer1 ) == set_of([2])
-    assert Peer.get_links( peer2 ) == set_of([1])
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}])
     
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
-  end
+
+     :timer.sleep(200)
+   end
 
   test "Messages with ttl 0 should be discarded" do
-    peer1 = peer_join(1, [init: true])
-    peer2 = peer_join(2, [ttl: 0])
+     peer1 = peer_join(1, [init: true])
+     peer2 = peer_join(2, [ttl: 0])
     
-    assert Peer.get_links( peer1 ) == set_of([])
-    assert Peer.get_links( peer2 ) == set_of([])
+     assert Peer.get_links( peer1 ) == set_of([])
+     assert Peer.get_links( peer2 ) == set_of([])
     
-    :ok = Peer.leave( peer1 )
-    :ok = Peer.leave( peer2 )
-  end
+     :ok = Peer.leave( peer1 )
+     :ok = Peer.leave( peer2 )
 
-  test "Messages with too large hopcount should be discarded" do
-    peer1 = peer_join(1, [init: true])
-    peer2 = peer_join(2, [ttl: 1, bootstrap: 1])
-    peer3 = peer_join(3, [ttl: 1, bootstrap: 2])
-    peer4 = peer_join(4, [ttl: 3, bootstrap: 3])
+     :timer.sleep(200)
+   end
 
-    assert Peer.get_links( peer1 ) == set_of([2])
-    assert Peer.get_links( peer2 ) == set_of([1,3])
-    assert Peer.get_links( peer3 ) == set_of([2,4])
-    assert Peer.get_links( peer4 ) == set_of([3])
+   test "Messages with too large hopcount should be discarded" do
+     peer1 = peer_join(1, [init: true])
+     peer2 = peer_join(2, [ttl: 1, bootstrap: 1])
+     peer3 = peer_join(3, [ttl: 1, bootstrap: 2])
+     peer4 = peer_join(4, [ttl: 3, bootstrap: 3])
 
-    :ok = Peer.leave( peer1 )
-    :ok = Peer.leave( peer2 )
-    :ok = Peer.leave( peer3 )
-    :ok = Peer.leave( peer4 )
-  end
+     assert Peer.get_links( peer1 ) == set_of([{2, :active}])
+     assert Peer.get_links( peer2 ) == set_of([{1, :passive},{3, :active}])
+     assert Peer.get_links( peer3 ) == set_of([{2, :passive},{4, :active}])
+     assert Peer.get_links( peer4 ) == set_of([{3, :passive}])
+
+     :ok = Peer.leave( peer1 )
+     :ok = Peer.leave( peer2 )
+     :ok = Peer.leave( peer3 )
+     :ok = Peer.leave( peer4 )
+
+     :timer.sleep(200)
+   end
 
   test "Messages with ttl > 0 should not be discarded" do
     peer1 = peer_join(1, [init: true, ttl: 1])
     peer2 = peer_join(2, [bootstrap: 1, ttl: 1])
     peer3 = peer_join(3, [bootstrap: 2, ttl: 1])
 
-    assert Peer.get_links( peer1 ) == set_of([2])
-    assert Peer.get_links( peer2 ) == set_of([1, 3])
-    assert Peer.get_links( peer3 ) == set_of([2])
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
+    assert Peer.get_links( peer3 ) == set_of([{2, :passive}])
 
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
     :ok = Peer.leave( peer3 )
+
+    :timer.sleep(200)
   end
 
   test "Peer should not accept more than maxlinks" do
@@ -63,18 +71,17 @@ defmodule JoiningTest do
     peer3 = peer_join(3, [maxlinks: maxlinks])
     peer4 = peer_join(4, [maxlinks: 3])
 
-    :timer.sleep(1000)
-
-    assert Peer.get_links( peer1 ) == set_of([2, 3])
-    assert Peer.get_links( peer2 ) == set_of([1, 3])
-    assert Peer.get_links( peer3 ) == set_of([1, 2])
-    assert Peer.get_links( peer4 ) == set_of([1, 2, 3])
+    assert Peer.get_links( peer1 ) == set_of([{2, :active }, {3, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
+    assert Peer.get_links( peer3 ) == set_of([{1, :passive}, {2, :passive}])
+    assert Peer.get_links( peer4 ) == set_of([{1, :passive}, {2, :passive}, {3, :passive}])
     
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
     :ok = Peer.leave( peer3 )
     :ok = Peer.leave( peer4 )
 
+    :timer.sleep(200)
   end
 
   test "Three peers get to know each other" do
@@ -82,13 +89,15 @@ defmodule JoiningTest do
     peer2 = peer_join(2, [bootstrap: 1])
     peer3 = peer_join(3, [bootstrap: 2])  
 
-    assert Peer.get_links( peer1 ) == set_of([2, 3])
-    assert Peer.get_links( peer2 ) == set_of([1, 3])
-    assert Peer.get_links( peer3 ) == set_of([1, 2])
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}, {3, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
+    assert Peer.get_links( peer3 ) == set_of([{1, :passive}, {2, :passive}])
     
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
     :ok = Peer.leave( peer3 )
+
+    :timer.sleep(200)
   end
 
   test "New peer should select maxlinks random peers on startup" do
@@ -101,34 +110,36 @@ defmodule JoiningTest do
     :ok = Peer.leave( bootstrap_node )
     for p <- peers, do: Peer.leave(p)
     :ok = Peer.leave( new_peer )
-  end
 
-  # FIXME: 
-  # -------------------------------------------------------------------------------
-  # this test fails because or joining algorithm is flawed
-  # the peers who join first all get to know each other and do not remember 
-  # those who come later (maxlinks reached), so queries never reach the late comers
-  # 
+    :timer.sleep(200)
+  end
+  
   test "Peers should handle partial failure on startup" do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1])
     peer3 = peer_join(3, [bootstrap: 1])  
 
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}, {3, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
+    assert Peer.get_links( peer3 ) == set_of([{1, :passive}, {2, :passive}])
+
     :ok = Peer.leave(peer3)
 
-    # not yet realized that 3 is gone
-    assert Peer.get_links( peer1 ) == set_of([2, 3])
-    assert Peer.get_links( peer2 ) == set_of([1, 3])
+    :timer.sleep(200)
+
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}])
 
     peer4 = peer_join(4, [bootstrap: 1])
-    assert Peer.get_links( peer1 ) == set_of([2, 4])
-    assert Peer.get_links( peer2 ) == set_of([1, 4])
-    assert Peer.get_links( peer4 ) == set_of([1, 2])
+    assert Peer.get_links( peer1 ) == set_of([{2, :active}, {4, :active}])
+    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {4, :active}])
+    assert Peer.get_links( peer4 ) == set_of([{1, :passive}, {2, :passive}])
     
     :ok = Peer.leave(peer1)
     :ok = Peer.leave(peer2)
     :ok = Peer.leave(peer4)
 
+    :timer.sleep(200)
   end
 
 end

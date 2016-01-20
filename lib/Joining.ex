@@ -1,12 +1,12 @@
 defmodule Joining do
 
-	def join(_peer, state, {bip, bport}) do
-		msg_props = %{replyport: state.listen_port, latlon: state.location}
+	def join(peer, state, {bip, bport}) do
+		msg_props = %{latlon: state.location}
 		msg_props = Network.reset_props(msg_props, state.config)
 		msg = {:ping, nil, {nil, state.listen_port, state.location}}
 		msg_id =  Network.get_msg_id(msg, state.config)
 		MessageStore.put_own_message(state, msg_id, nil)
-		Network.send_msg(msg_id, {bip, bport, nil}, msg, msg_props, state.config)
+		Network.send_and_listen(peer, msg_id, {bip, bport, nil}, msg, msg_props, state)
 	end
 
 	@doc ~S"""
@@ -66,13 +66,17 @@ defmodule Joining do
 		state
 	end
 
+	def announce_join(peer, state) do
+		msg_props = %{latlon: state.location}
+		msg_props = Network.reset_props(msg_props, state.config)
+		send_all(peer, state.links, {:joined }, msg_props, state)
+	end
+
 	def handle_join(peer, msg_id, from_link, source_link, state, msg_props) do
 		unless MessageStore.is_known_message(state, msg_id) do #Unless we have already seen this ping
 			MessageStore.put_other_message(state, msg_id, from_link)
-			msg_props = Map.put(msg_props, :replyport, state.listen_port)
 			msg_props = Map.put(msg_props, :latlon, state.location)
-			reply(msg_id, from_link, {nil, state.listen_port, state.location}, msg_props, state)
-			Peer.suggest_link(peer, source_link)
+			reply(peer, msg_id, from_link, {nil, state.listen_port, state.location}, msg_props, state)
  			links = Set.delete(state.links, from_link)
 			send_all(peer, links, {:ping, msg_id, source_link}, msg_props, state)
 		end
@@ -82,25 +86,24 @@ defmodule Joining do
 	# FIXME: find a nicer way to propagate process errors to Peer
 	#
 	defp send_all(peer, links, msg, msg_props, state) do
-		Process.flag(:trap_exit, true)
 		msg_id = Network.get_msg_id(msg, state.config)
 		Enum.map( links, fn link -> 
-			spawn_link(fn -> Network.send_msg(msg_id, link, msg, msg_props, state.config) end)
+			spawn_link(fn -> Network.send_msg(peer, msg_id, link, msg, msg_props, state) end)
 		end)
 		for _ <- links, do: (
 			receive do
 				{:EXIT, _pid, {:brokenlink, link, error}} -> Peer.link_broken(peer, link, error)
 		 	after
-				500 -> # everything fine
+				50 -> # everything fine
 		 	end
 		 )
 	end
 
-	def reply(correlation_id, from_link, new_link, msg_props, state) do
+	def reply(peer, correlation_id, from_link, new_link, msg_props, state) do
 		msg_props = Network.reset_props(msg_props, state.config)
 		msg = {:pong, correlation_id, new_link}
 		msg_id = Network.get_msg_id(msg, state.config)
-		Network.send_msg(msg_id, from_link, msg, msg_props, state.config)
+		Network.send_msg(peer, msg_id, from_link, msg, msg_props, state)
 	end
 
 end
