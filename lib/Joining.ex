@@ -1,5 +1,7 @@
 defmodule Joining do
 
+	require Logger
+
 	def join(peer, state, {bip, bport}) do
 		msg_props = %{latlon: state.location}
 		msg_props = Network.reset_props(msg_props, state.config)

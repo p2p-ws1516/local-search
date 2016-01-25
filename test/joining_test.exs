@@ -13,7 +13,7 @@ defmodule JoiningTest do
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
 
-     :timer.sleep(200)
+    :timer.sleep(200)
    end
 
   test "Messages with ttl 0 should be discarded" do
@@ -64,26 +64,6 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
 
-  test "Peer should not accept more than maxlinks" do
-    maxlinks = 2
-    peer1 = peer_join(1, [init: true, maxlinks: maxlinks])
-    peer2 = peer_join(2, [maxlinks: maxlinks])
-    peer3 = peer_join(3, [maxlinks: maxlinks])
-    peer4 = peer_join(4, [maxlinks: 3])
-
-    assert Peer.get_links( peer1 ) == set_of([{2, :active }, {3, :active}])
-    assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
-    assert Peer.get_links( peer3 ) == set_of([{1, :passive}, {2, :passive}])
-    assert Peer.get_links( peer4 ) == set_of([{1, :passive}, {2, :passive}, {3, :passive}])
-    
-    :ok = Peer.leave( peer1 )
-    :ok = Peer.leave( peer2 )
-    :ok = Peer.leave( peer3 )
-    :ok = Peer.leave( peer4 )
-
-    :timer.sleep(200)
-  end
-
   test "Three peers get to know each other" do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1])
@@ -102,7 +82,7 @@ defmodule JoiningTest do
 
   test "New peer should select maxlinks random peers on startup" do
     bootstrap_node = peer_join(0, [init: true])
-    peers = for i <- 1..10, do: peer_join(i, [bootstrap: 0, maxlinks: 10]) 
+    peers = for i <- 1..20, do: peer_join(i, [bootstrap: 0, maxlinks: 2]) 
 
     new_peer = peer_join(99, [bootstrap: 0, maxlinks: 3, ttl: 10])
     assert Set.size(Peer.get_links( new_peer )) == 3

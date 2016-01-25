@@ -55,10 +55,6 @@ defmodule Peer do
     {:ok, state }
   end
 
-  def monitor(peer_pid, pid) do
-    GenServer.cast(peer_pid, {:monitor, pid})
-  end
-
   def add_item(peer_pid, item) do
     GenServer.call(peer_pid, {:add_item, item})
   end
@@ -85,20 +81,14 @@ defmodule Peer do
 
   ## asynchronous casts 
 
-  def handle_cast( { :monitor, pid}, state) do
-    Process.monitor(pid)
+  def handle_cast( { :newlink, link }, state ) do
+    state = add_link(state, link)
     {:noreply, state}
   end
-  
 
   def handle_cast( { :ping, msg_id, from_link, source_link, msg_props}, state) do
     this = self()
     spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, msg_props) end
-    {:noreply, state}
-  end
-  
-  def handle_cast( { :newlink, link }, state ) do
-    state = add_pending_link(state, link)
     {:noreply, state}
   end
 
@@ -109,7 +99,7 @@ defmodule Peer do
           state = add_pending_link(state, {ip, port, latlon})
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          spawn_link fn -> Joining.reply(this, correlation_id, issuer, {ip, port, latlon}, msg_props, state) end
+          Joining.reply(this, correlation_id, issuer, {ip, port, latlon}, msg_props, state)
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end
@@ -205,13 +195,22 @@ defmodule Peer do
     { :stop, anything, state}
   end
 
-  defp add_pending_link(state, link) do
-    if Set.size(state.links) < state.config[:maxlinks] and not Set.member?(state.links, link) do
-      key = if (state.status == :init) do :pending_links else :links end
-      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new #{if key == :pending_links, do: "PENDING"} link #{inspect link}"
-      state = Map.update!(state, key, fn links -> Set.put(links, link) end)
+  defp add_link(state, link) do
+    if not Set.member?(state.links, link) do
+      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
+      Map.update!(state, :links, fn links -> Set.put(links, link) end)
+    else
+      state
     end
-    state
+  end 
+
+  defp add_pending_link(state, link) do
+    if state.status == :init and not Set.member?(state.links, link) do
+      Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new PENDING link #{inspect link}"
+      Map.update!(state, :pending_links, fn links -> Set.put(links, link) end)
+    else
+      state
+    end
   end
 
   defp format_latlon({lat, lon}) do

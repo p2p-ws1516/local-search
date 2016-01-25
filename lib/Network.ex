@@ -24,14 +24,14 @@ defmodule Network do
 		end
 		{:ok, {address, port}} = :inet.peername(client)
 		TCPCache.put(state, address, port, client)
-		TCPCache.use_socket(reply_to, state, address, port, &(loop_read(reply_to, &1)), false)
+		TCPCache.use_socket(reply_to, state, address, port, &(loop_read(reply_to, &1, state)), false)
 		loop_acceptor(reply_to, socket, state)
 	end
 
-	defp loop_read(reply_to, socket) do
-		msg = read_msg(reply_to, socket)
+	defp loop_read(reply_to, socket, state) do
+		msg = read_msg(reply_to, socket, state)
 		GenServer.cast(reply_to, msg)
-		loop_read(reply_to, socket)
+		loop_read(reply_to, socket, state)
 	end
 
 	@doc ~S"""
@@ -49,7 +49,7 @@ defmodule Network do
 	def send_and_listen(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) do
 		send_msg(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) 
 		unless msg_id == nil do
-		  TCPCache.use_socket(reply_to, state, ip_address, port, &(loop_read(reply_to, &1)))
+		  TCPCache.use_socket(reply_to, state, ip_address, port, &(loop_read(reply_to, &1, state)))
 		end
 	end
 
@@ -60,13 +60,13 @@ defmodule Network do
 		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= state.config[:ttl] do
 			nil
 		else
-			TCPCache.use_socket(reply_to, state, ip_address, port, fn socket -> send_impl(msg_id, socket, msg, msg_props) end )
+			TCPCache.use_socket(reply_to, state, ip_address, port, fn socket -> send_impl(msg_id, socket, msg, msg_props, state) end )
 		end
 	end
 
  	## Sends message over socket without waiting for a reply and returns the message id
-	defp send_impl(msg_id, socket, msg, msg_props) do
-		Logger.debug "#{msg_props[:replyport]} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
+	defp send_impl(msg_id, socket, msg, msg_props, state) do
+		Logger.debug "#{state.listen_port} Sending message #{inspect msg} to #{inspect :inet.peername(socket)}"
 		{_status, line} = case msg do
 			{:ping, correlation_id, source_link} -> 
 				JSON.encode(
@@ -116,7 +116,7 @@ defmodule Network do
 	# This is usually true for the listen sockets initiated by the process itself, 
 	# whereas termination of connections iniated by other peers is fine  
 	
-	defp read_msg(reply_to, socket) do
+	defp read_msg(reply_to, socket, state) do
 		{:ok, {address, send_port}} = :inet.peername(socket)
 		data = case :gen_tcp.recv(socket, 0) do
 			{:ok, data} -> data
@@ -127,7 +127,7 @@ defmodule Network do
 		case data do
 			_ -> 
 				{_status, msg} = JSON.decode(data)
-				Logger.debug "Got via TCP #{inspect msg}"
+				Logger.debug "#{state.listen_port} Got via TCP #{inspect msg}"
 				props = props(msg)
 				props = Map.update!(props, :ttl, fn ttl -> ttl - 1 end)
 				props = Map.update!(props, :hopcount, fn hc -> hc + 1 end)

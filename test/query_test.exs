@@ -80,23 +80,23 @@ defmodule QueryTest do
   	numpeers = 20
     bootstrap_node = peer_join(-1, [init: true,  maxlinks: numpeers])
     peers = for i <- 0..5, do: peer_join(i, [bootstrap: -1, maxlinks: numpeers]) 
-    peers = peers ++ for i <- 6..(numpeers), do: peer_join(i, [bootstrap: i-5, maxlinks: 4, startuptime: 250, sleep: 500]) 
+    peers = peers ++ for i <- 6..(numpeers), do: peer_join(i, [bootstrap: i-5, maxlinks: 4 ]) 
 
 	  {_, lastpeer} = Enum.fetch(peers, numpeers)
     Peer.add_item(lastpeer, "Foo bar")
 
-    new_peer = peer_join(99, [bootstrap: numpeers - 1, maxlinks: 5, ttl: 10, startuptime: 250, sleep: 500])
+    new_peer = peer_join(99, [bootstrap: numpeers - 1, maxlinks: 5, ttl: 10 ])
 
 	  Peer.query(new_peer, "Foo bar", self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {numpeers,numpeers}}}, 2000)
+    assert_receive({:query_hit, "Foo bar", {_,_, {numpeers,numpeers}}}, 500)
     refute_receive({:query_hit, _, _})    
 
     :ok = Peer.leave( bootstrap_node )
     for p <- peers, do: Peer.leave( p )
     :ok = Peer.leave( new_peer )
 
-    :timer.sleep(5000)
+    :timer.sleep(200)
   end
 
 end
