@@ -19,12 +19,11 @@ defmodule Network do
 	defp loop_acceptor(reply_to, socket, state) do
 		client = case :gen_tcp.accept(socket) do
 			{:ok, client} -> client
-			_error -> 
-				exit(:shutdown)
+			_error -> exit(:shutdown)
 		end
 		{:ok, {address, port}} = :inet.peername(client)
 		TCPCache.put(state, address, port, client)
-		TCPCache.use_socket(reply_to, state, address, port, &(loop_read(reply_to, &1, state)), false)
+		TCPCache.use_socket(state, address, port, &(loop_read(reply_to, &1, state)), nil)
 		loop_acceptor(reply_to, socket, state)
 	end
 
@@ -46,22 +45,16 @@ defmodule Network do
 	@doc ~S"""
 	Sends a message to the other address and listens to newly created socket
 	"""
-	def send_and_listen(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) do
-		send_msg(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) 
-		unless msg_id == nil do
-		  TCPCache.use_socket(reply_to, state, ip_address, port, &(loop_read(reply_to, &1, state)))
+	def send_and_listen(reply_to, msg_id, {ip_address, port, _latlon}, msg, msg_props, state) do
+		unless is_ttl_zero?(msg_props, state) do
+		  TCPCache.use_socket(state, ip_address, port, 
+		  	&(loop_read(reply_to, &1, state)), 
+		  	&(send_impl(msg_id, &1, msg, msg_props, state)))
 		end
 	end
 
-	@doc ~S"""
-	Sends message to specified address without waitung for a reply and returns message id
-	"""
-	def send_msg(reply_to, msg_id, {ip_address, port, _}, msg, msg_props, state) do
-		if msg_props[:ttl] == 0 or msg_props[:hopcount] >= state.config[:ttl] do
-			nil
-		else
-			TCPCache.use_socket(reply_to, state, ip_address, port, fn socket -> send_impl(msg_id, socket, msg, msg_props, state) end )
-		end
+	defp is_ttl_zero?(msg_props, state) do
+		msg_props[:ttl] == 0 or msg_props[:hopcount] >= state.config[:ttl]
 	end
 
  	## Sends message over socket without waiting for a reply and returns the message id

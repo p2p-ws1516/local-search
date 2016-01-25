@@ -95,9 +95,9 @@ defmodule JoiningTest do
   end
   
   test "Peers should handle partial failure on startup" do
-    peer1 = peer_join(1, [init: true])
-    peer2 = peer_join(2, [bootstrap: 1])
-    peer3 = peer_join(3, [bootstrap: 1])  
+    peer1 = peer_join(1, [init: true, maxlinks: 1])
+    peer2 = peer_join(2, [bootstrap: 1, maxlinks: 1])
+    peer3 = peer_join(3, [bootstrap: 1, maxlinks: 2])  
 
     assert Peer.get_links( peer1 ) == set_of([{2, :active}, {3, :active}])
     assert Peer.get_links( peer2 ) == set_of([{1, :passive}, {3, :active}])
@@ -122,4 +122,37 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
 
+  test "Peers should collect new links if no. links is below maxlinks" do
+    peer1 = peer_join(1, [init: true, maxlinks: 3])
+    peer2 = peer_join(2, [bootstrap: 1, maxlinks: 3])
+    peer3 = peer_join(3, [bootstrap: 1, maxlinks: 3])  
+    peer4 = peer_join(4, [bootstrap: 1, maxlinks: 2, startuptime: 100, sleep: 200, refreshtime: 300])
+
+    peer4_links = Peer.get_links( peer4 )
+    assert Set.size( peer4_links ) == 2
+
+    {broken_peer_id, others} = cond do 
+            Set.member?(peer4_links, get_passive_link(3)) -> {peer3, [peer1, peer2]}
+            Set.member?(peer4_links, get_passive_link(2)) -> {peer2, [peer1, peer3]}
+            Set.member?(peer4_links, get_passive_link(1)) -> {peer1, [peer2, peer3]}
+           end
+
+    Peer.leave(broken_peer_id)
+
+    Peer.add_item(hd(others), "Item")
+    # Let peer 4 discover loss of link
+    Peer.query(peer4, "Item", self)
+    
+    # Wait until peer 4 is re-initialized
+    :timer.sleep(1000)
+    
+    peer4_links = Peer.get_links( peer4 )
+    assert Set.size( peer4_links ) == 2
+
+    for p <- others, do: Peer.leave(p)
+    Peer.leave(peer4)
+
+    :timer.sleep(200)
+
+  end
 end

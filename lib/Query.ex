@@ -41,7 +41,7 @@ defmodule Query do
 		msg_props = Network.reset_props(msg_props, state.config)
 		msg = {:query_hit, correlation_id, query, owner}
 		msg_id = Network.get_msg_id(msg, state.config)
-		Network.send_msg(peer, msg_id, link, msg, msg_props, state)
+		Network.send_and_listen(peer, msg_id, link, msg, msg_props, state)
 	end
 
 end

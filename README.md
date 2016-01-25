@@ -44,11 +44,10 @@
 
 * Feature: Finish REPL
 * Queries:
-    * Feature: Filter queries based on location
+    * Bug: Filter queries based on location
     * Feature: Allow for more complex queries
 * Examine / handle more partial failure scenarios
     * Refactoring: find cleaner way to propagate TCP errors to peer's link list
-    * Feature: find new links when no. links smaller that max. no. links
 * Test: Simulate large number of peers
 * Test: Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
 

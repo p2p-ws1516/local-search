@@ -5,7 +5,8 @@ use Mix.Config
 config :gnutella, 
 	[ttl: 7,
 	 initlinks: 5,
-	 startuptime: 5000 ]
+	 startuptime: 5000,
+   refreshtime: 5000 ]
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this
