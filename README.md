@@ -39,22 +39,25 @@
         * very simple implementation based on exact strings and without location awareness 
 * Deal with partial failure (e.g. broken TCP connections) **done**
     * some errors get caught    
-* Finish REPL
 
 ### Iteration 1.3
 
-* Query algorithm: filter queries based on location
-* Query algorithm: allow for more complex queries
-* Examine more partial failure scenarios
-* Simulate large number of peers
-* Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
+* Feature: Finish REPL
+* Queries:
+    * Feature: Filter queries based on location
+    * Feature: Allow for more complex queries
+* Examine / handle more partial failure scenarios
+    * Refactoring: find cleaner way to propagate TCP errors to peer's link list
+    * Feature: find new links when no. links smaller that max. no. links
+* Test: Simulate large number of peers
+* Test: Find way to examine overlay structure (e.g. https://en.wikipedia.org/wiki/Snapshot_algorithm)
 
 ##Iteration 2
 
 * Try to optimize joining of peers w.r.t. the location, i.e. try to find peers that are nearby.
-* Maybe it will be necessary to have addititional random links as well, in order to achieve small world characteristics.
-* Still, do not make routing decisions based on locations (may be stuck in local optima)
+    * Maybe it will be necessary to have addititional random links as well, in order to achieve small world characteristics.
+    * Still, do not make routing decisions based on locations (may get stuck in local optima)
 
 ##Iteration 3
 * Try to optimize routing w.r.t the location, e.g. do not flood requests further than necessary
-* Note: considered hard by Prof. because we may get stuck in local optima
+    * Note: considered hard by Prof. because we may get stuck in local optima
