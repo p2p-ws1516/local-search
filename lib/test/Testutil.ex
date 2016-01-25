@@ -8,12 +8,13 @@ defmodule Testutil do
   #
   def peer_join(id, opts) do
     ttl = Keyword.get(opts, :ttl, 7)
-    maxlinks = Keyword.get(opts, :maxlinks, 5)
+    maxlinks = Keyword.get(opts, :maxlinks, 2)
     bootstrap_port = 9000 + Keyword.get(opts, :bootstrap, 1)
     init = Keyword.get(opts, :init, false)
-    startuptime = Keyword.get(opts, :startuptime, 50)
-    sleep = Keyword.get(opts, :sleep, 100)
-    config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime, sleep: sleep]
+    startuptime = Keyword.get(opts, :startuptime, 100)
+    refreshtime = Keyword.get(opts, :refreshtime, 60000)  # we usually do not want this in tests
+    sleep = Keyword.get(opts, :sleep, 200)
+    config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime, refreshtime: refreshtime, sleep: sleep]
     { :ok, peer } = if (init) do
         Peer.join(%{ location: {id,id}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), config: config })        
     else

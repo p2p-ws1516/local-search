@@ -37,20 +37,20 @@ defmodule Peer do
 
     opts = [strategy: :one_for_one ]
 
+    {_, suppid} = Supervisor.start_link(children, opts)
+    state = Map.put(state, :supervisor, suppid)
+
+    this = self
+
     unless( Map.has_key?( state, :bootstrap) ) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
     else
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
-      children = 
-        [ worker(Task, 
-          [Joining, :join, [self, state, hd(state.bootstrap)]], 
-          id: :joining, 
-          restart: :transient) | children ]
+      Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
     end
-    {_, suppid} = Supervisor.start_link(children, opts)
-    state = Map.put(state, :supervisor, suppid)
 
     :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
+    :timer.apply_after(state.config[:startuptime] + state.config[:refreshtime], GenServer, :cast, [self, {:refresh}])
 
     {:ok, state }
   end
@@ -88,7 +88,7 @@ defmodule Peer do
 
   def handle_cast( { :ping, msg_id, from_link, source_link, msg_props}, state) do
     this = self()
-    spawn_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, msg_props) end
+    Task.start_link fn -> Joining.handle_join(this, msg_id, from_link, source_link, state, msg_props) end
     {:noreply, state}
   end
 
@@ -108,13 +108,13 @@ defmodule Peer do
 
   def handle_cast( { :myquery, query, reply_to }, state) do
     this = self()
-    spawn_link fn -> Query.issue(this, reply_to, query, state) end
+    Task.start_link fn -> Query.issue(this, reply_to, query, state) end
     {:noreply, state}
   end
 
   def handle_cast( { :query, msg_id, from_link, query, msg_props }, state) do
     this = self()
-    spawn_link fn -> Query.handle_query(this, msg_id, from_link, query, msg_props, state) end
+    Task.start_link fn -> Query.handle_query(this, msg_id, from_link, query, msg_props, state) end
     {:noreply, state}
   end
 
@@ -126,7 +126,7 @@ defmodule Peer do
           send(reply_to, {:query_hit, query, owner })
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          spawn_link fn -> Query.reply(this, correlation_id, issuer, query, owner, msg_props, state) end
+          Task.start_link fn -> Query.reply(this, correlation_id, issuer, query, owner, msg_props, state) end
         true ->
           Logger.warn "Unexpected query_hit referring to #{inspect correlation_id}"
       end
@@ -138,7 +138,8 @@ defmodule Peer do
     state = Map.update!(state, :links, fn links -> 
       Enum.into(Enum.filter(links, fn {ip, port, _} -> {ip, port} != link end), HashSet.new) 
     end)
-     {:noreply, state}
+    Logger.debug "#{inspect state.listen_port} Current list of links:\n#{format_links(state)}"
+    {:noreply, state}
   end
 
   def handle_cast( { :startup_finished }, state) do
@@ -147,8 +148,20 @@ defmodule Peer do
       state = Map.put(state, :status, :ready)
       Logger.info (
         "#{inspect self} at port #{inspect state.listen_port} finished startup\n"<>
-        "Links:\n#{Enum.sort(state.links) |> Enum.map(fn l -> "\t" <> to_string(Network.format(l)) end) |> Enum.join("\n")}")
+        "Links:\n#{format_links(state)}")
       {:noreply, state}
+  end
+
+  def handle_cast( { :refresh }, state) do
+    if (Set.size(state.links) < state.config[:maxlinks]) do
+      state = Map.put(state, :status, :init)
+      init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {ip, port, _} -> {ip, port} end) end
+      this = self()
+      Task.start_link fn -> Joining.join(this, state, init_links) end
+      :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
+    end
+    :timer.apply_after(state.config[:refreshtime], GenServer, :cast, [self, {:refresh}])
+    {:noreply, state}
   end
 
   ## synchronous calls
@@ -215,6 +228,10 @@ defmodule Peer do
 
   defp format_latlon({lat, lon}) do
     "lat: #{lat}, lon: #{lon}"
+  end
+
+  defp format_links(state) do
+    "#{Enum.sort(state.links) |> Enum.map(fn l -> "\t" <> to_string(Network.format(l)) end) |> Enum.join("\n")}"
   end
 
 end

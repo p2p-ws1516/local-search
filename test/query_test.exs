@@ -18,6 +18,21 @@ defmodule QueryTest do
     :timer.sleep(200)
   end
 
+  test "queries traverse bidirectional links" do
+    peer1 = peer_join(1, [init: true])
+    peer2 = peer_join(2, [bootstrap: 1])
+    
+    Peer.add_item(peer2, "Foo bar")
+    Peer.query(peer1, "Foo bar", self)
+
+    assert_receive({:query_hit, "Foo bar", {_,_, {2,2}}})
+
+    :ok = Peer.leave(peer1)
+    :ok = Peer.leave(peer2)
+
+    :timer.sleep(200)
+  end
+
   test "Query hits should be propagated" do
     peer1 = peer_join(1, [init: true, maxlinks: 0])
     peer2 = peer_join(2, [bootstrap: 1, maxlinks: 1])
@@ -26,7 +41,6 @@ defmodule QueryTest do
     Peer.add_item(peer1, "Foo bar")
 
     Peer.query(peer3, "Foo bar", self)
-
 
     assert_receive({:query_hit, "Foo bar", {_,_, {1,1}}})
     
