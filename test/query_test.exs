@@ -4,7 +4,7 @@ defmodule QueryTest do
   import Testutil
 
   test "Query should match simple values" do
-  	peer1 = peer_join(1, [init: true])
+    peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [])
     Peer.add_item(peer2, "Foo bar")
 
@@ -19,7 +19,7 @@ defmodule QueryTest do
   end
 
   test "Query hits should be propagated" do
-  	peer1 = peer_join(1, [init: true, maxlinks: 0])
+    peer1 = peer_join(1, [init: true, maxlinks: 0])
     peer2 = peer_join(2, [bootstrap: 1, maxlinks: 1])
     peer3 = peer_join(3, [bootstrap: 2, maxlinks: 1])
     
@@ -38,7 +38,7 @@ defmodule QueryTest do
   end
 
   test "Multiple hits should be reported" do
-  	peer1 = peer_join(1, [init: true])
+    peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1])
     peer3 = peer_join(3, [bootstrap: 2])
     
@@ -59,7 +59,7 @@ defmodule QueryTest do
   end
 
   test "Query handling should respect TTL" do
-  	peer1 = peer_join(1, [init: true])
+    peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1, ttl: 1])
     peer3 = peer_join(3, [bootstrap: 2])
     
@@ -77,17 +77,17 @@ defmodule QueryTest do
   end
 
   test "Items should be found in large network" do
-  	numpeers = 20
+    numpeers = 20
     bootstrap_node = peer_join(-1, [init: true,  maxlinks: numpeers])
     peers = for i <- 0..5, do: peer_join(i, [bootstrap: -1, maxlinks: numpeers]) 
     peers = peers ++ for i <- 6..(numpeers), do: peer_join(i, [bootstrap: i-5, maxlinks: 4 ]) 
 
-	  {_, lastpeer} = Enum.fetch(peers, numpeers)
+    {_, lastpeer} = Enum.fetch(peers, numpeers)
     Peer.add_item(lastpeer, "Foo bar")
 
     new_peer = peer_join(99, [bootstrap: numpeers - 1, maxlinks: 5, ttl: 10 ])
 
-	  Peer.query(new_peer, "Foo bar", self)
+    Peer.query(new_peer, "Foo bar", self)
 
     assert_receive({:query_hit, "Foo bar", {_,_, {numpeers,numpeers}}}, 500)
     refute_receive({:query_hit, _, _})    
