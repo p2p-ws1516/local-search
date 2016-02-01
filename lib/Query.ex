@@ -1,30 +1,41 @@
 defmodule Query do
 	
-	def issue(peer, reply_to, query, state) do
+	def issue(peer, reply_to, {query, opts}, state) do
 		msg_props = %{latlon: state.location}
 		msg_props = Network.reset_props(msg_props, state.config)
-		msg = {:query, nil, query}
+		opts = Keyword.put(opts, :location, state.location)
+		msg = {:query, nil, {query, opts}}
 		msg_id = Network.get_msg_id(msg, state.config )
 		MessageStore.put_own_message(state, msg_id, reply_to)
 		send_all(peer, state.links, msg_id, msg, msg_props, state)
 	end
 
-	def handle_query(peer, msg_id, from_link, query, msg_props, state) do
+	def handle_query(peer, msg_id, from_link, {query, opts}, msg_props, state) do
 		unless MessageStore.is_known_message(state, msg_id) do #Unless we have already seen this ping
 			MessageStore.put_other_message(state, msg_id, from_link)
 			msg_props = Map.put(msg_props, :latlon, state.location)
-			if is_query_hit(query, state) do 
-				reply(peer, msg_id, from_link, query, {nil, state.listen_port, state.location}, msg_props, state) 
+			case is_query_hit(query, opts, state) do 
+				{:ok, matches} -> reply(peer, msg_id, from_link, matches, {nil, state.listen_port, state.location}, msg_props, state) 
+				_ -> # Do nothing
 			end
 			links = Set.delete(state.links, from_link)
-			msg = {:query, msg_id, query}
+			msg = {:query, msg_id, {query, opts}}
 			msg_id = Network.get_msg_id(msg, state.config )
 			send_all(peer, links, msg_id, msg, msg_props, state)
 		end
 	end
 
-	defp is_query_hit(query, state) do
-		Enum.member?(state.inventory, query)
+	defp is_query_hit(query, opts, state) do
+		match = true
+		if Keyword.has_key?(opts, :location) and Keyword.has_key?(opts, :radius) do
+			match = LocationUtil.distance_km(state.location, opts[:location]) <= opts[:radius]
+		end
+		matches = Enum.filter(state.inventory, fn item -> String.match?(String.downcase(item), Regex.compile!(String.downcase(query))) end)
+		if not match or Enum.empty?(matches) do
+			{:nomatch}
+		else
+			{:ok, matches}
+		end
 	end
 
 	#

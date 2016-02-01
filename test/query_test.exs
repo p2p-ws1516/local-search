@@ -8,9 +8,25 @@ defmodule QueryTest do
     peer2 = peer_join(2, [])
     Peer.add_item(peer2, "Foo bar")
 
-    Peer.query(peer1, "Foo bar", self)
+    Peer.query(peer1, "Foo bar", [], self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {2,2}}})
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {2,2}}})
+    
+    :ok = Peer.leave( peer1 )
+    :ok = Peer.leave( peer2 )
+
+    :timer.sleep(200)
+  end
+
+  test "Query should match partial values" do
+    peer1 = peer_join(1, [init: true])
+    peer2 = peer_join(2, [])
+    Peer.add_item(peer2, "Foo bar")
+    Peer.add_item(peer2, "XYFooZ")
+
+    Peer.query(peer1, "Foo", [], self)
+
+    assert_receive({:query_hit, ["XYFooZ", "Foo bar"], {_,_, {2,2}}})
     
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
@@ -23,9 +39,9 @@ defmodule QueryTest do
     peer2 = peer_join(2, [bootstrap: 1])
     
     Peer.add_item(peer2, "Foo bar")
-    Peer.query(peer1, "Foo bar", self)
+    Peer.query(peer1, "Foo bar", [], self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {2,2}}})
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {2,2}}})
 
     :ok = Peer.leave(peer1)
     :ok = Peer.leave(peer2)
@@ -40,9 +56,9 @@ defmodule QueryTest do
     
     Peer.add_item(peer1, "Foo bar")
 
-    Peer.query(peer3, "Foo bar", self)
+    Peer.query(peer3, "Foo bar", [], self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {1,1}}})
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {1,1}}})
     
     :ok = Peer.leave( peer1 )
     :ok = Peer.leave( peer2 )
@@ -59,10 +75,10 @@ defmodule QueryTest do
     Peer.add_item(peer1, "Foo bar")
     Peer.add_item(peer2, "Foo bar")
 
-    Peer.query(peer3, "Foo bar", self)
+    Peer.query(peer3, "Foo bar", [], self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {1,1}}}, 1000)
-    assert_receive({:query_hit, "Foo bar", {_,_, {2,2}}}, 1000)
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {1,1}}}, 1000)
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {2,2}}}, 1000)
     refute_receive({:query_hit, _, _})
 
     :ok = Peer.leave( peer1 )
@@ -79,7 +95,7 @@ defmodule QueryTest do
     
     Peer.add_item(peer1, "Foo bar")
 
-    Peer.query(peer3, "Foo bar", self)
+    Peer.query(peer3, ["Foo bar"], [], self)
 
     refute_receive({:query_hit, _, _})
 
@@ -101,14 +117,36 @@ defmodule QueryTest do
 
     new_peer = peer_join(99, [bootstrap: numpeers - 1, maxlinks: 5, ttl: 10 ])
 
-    Peer.query(new_peer, "Foo bar", self)
+    Peer.query(new_peer, "Foo bar", [], self)
 
-    assert_receive({:query_hit, "Foo bar", {_,_, {numpeers,numpeers}}}, 500)
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {numpeers,numpeers}}}, 500)
     refute_receive({:query_hit, _, _})    
 
     :ok = Peer.leave( bootstrap_node )
     for p <- peers, do: Peer.leave( p )
     :ok = Peer.leave( new_peer )
+
+    :timer.sleep(200)
+  end
+
+  test "Search is location aware" do
+    peer_adlershof = peer_join(1, [init: true, lat: 52.4293128, lon: 13.5282168])
+    peer_mitte = peer_join(2, [bootstrap: 1, lat: 52.519801, lon: 13.3677223])
+    peer_neukoelln = peer_join(3, [bootstrap: 2, lat: 52.468927, lon: 13.4397813])
+    
+    Peer.add_item(peer_mitte, "Item 1")
+    Peer.add_item(peer_neukoelln, "Item 2")
+    
+    Peer.query(peer_adlershof, "Item", [radius: 10], self)
+
+    # We have a match in Neukoelln
+    assert_receive({:query_hit, ["Item 2"], {{127,0,0,1}, 9003, {52.468927,13.4397813}}}, 500)
+    # But not in Mitte (> 10 km from Adlershof)
+    refute_receive({:query_hit, _, _})
+
+    :ok = Peer.leave( peer_adlershof )
+    :ok = Peer.leave( peer_mitte )
+    :ok = Peer.leave( peer_neukoelln )
 
     :timer.sleep(200)
   end

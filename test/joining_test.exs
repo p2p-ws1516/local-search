@@ -141,7 +141,7 @@ defmodule JoiningTest do
 
     Peer.add_item(hd(others), "Item")
     # Let peer 4 discover loss of link
-    Peer.query(peer4, "Item", self)
+    Peer.query(peer4, "Item", [], self)
     
     # Wait until peer 4 is re-initialized
     :timer.sleep(1000)

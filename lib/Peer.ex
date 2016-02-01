@@ -59,8 +59,12 @@ defmodule Peer do
     GenServer.call(peer_pid, {:add_item, item})
   end
 
-  def query(peer_pid, query, reply_to ) do
-    GenServer.cast(peer_pid, {:myquery, query, reply_to})
+  #
+  # possible opts:
+  #   radius (int, km)
+  #
+  def query(peer_pid, query, opts, reply_to ) do
+    GenServer.cast(peer_pid, {:myquery, {query, opts}, reply_to})
   end
 
   def leave(peer_pid) do
@@ -106,9 +110,9 @@ defmodule Peer do
       {:noreply, state}
   end
 
-  def handle_cast( { :myquery, query, reply_to }, state) do
+  def handle_cast( { :myquery, {query, opts}, reply_to }, state) do
     this = self()
-    Task.start_link fn -> Query.issue(this, reply_to, query, state) end
+    Task.start_link fn -> Query.issue(this, reply_to, {query, opts}, state) end
     {:noreply, state}
   end
 

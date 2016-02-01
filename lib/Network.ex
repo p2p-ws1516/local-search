@@ -162,7 +162,7 @@ defmodule Network do
 						{:query, 
 							correlation_id, 
 							{address, send_port, List.to_tuple(props[:latlon])},
-							msg["query"],
+							decode_query(msg["query"]),
 							props
 						}
 					:query_hit ->
@@ -190,6 +190,15 @@ defmodule Network do
 	"""
 	def props(json_msg) do
 		for {key, val} <- json_msg["props"], into: %{}, do: {String.to_atom(key), val}
+	end
+
+	def decode_query(query) do
+		{q, opts} = List.to_tuple(query)
+		opts = (for {key, val} <- opts, into: [], do: {String.to_atom(key), val})
+		if (Keyword.has_key?(opts, :location)) do
+			opts = Keyword.put(opts, :location, List.to_tuple(opts[:location]))
+		end
+		{q, opts}
 	end
 
 	@doc ~S"""
