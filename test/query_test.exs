@@ -34,6 +34,24 @@ defmodule QueryTest do
     :timer.sleep(200)
   end
 
+  test "Query should match regex" do
+    peer1 = peer_join(1, [init: true])
+    peer2 = peer_join(2, [])
+    Peer.add_item(peer2, "Bike 123")
+    Peer.add_item(peer2, "Car 456")
+    Peer.add_item(peer2, "Book")
+
+    Peer.query(peer1, "B.*\d*", [], self)
+
+    assert_receive({:query_hit, ["Book", "Bike 123"], {_,_, {2,2}}})
+    
+    :ok = Peer.leave( peer1 )
+    :ok = Peer.leave( peer2 )
+
+    :timer.sleep(200)
+  end
+
+
   test "queries traverse bidirectional links" do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1])
