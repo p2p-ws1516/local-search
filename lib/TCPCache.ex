@@ -17,7 +17,7 @@ defmodule TCPCache do
 			result = if (Map.has_key?(map, {ip, port})) do
 						{:ok, Map.get(map, {ip, port})}
 					 else
-					 	opts = [:binary, packet: :line, active: false, reuseaddr: true, port: state.send_port]
+					 	opts = [:binary, packet: :line, active: false]
 						case :gen_tcp.connect(Network.format_ip(ip), port, opts ) do
 							{:ok, socket} -> 
                 Logger.debug 'ok'

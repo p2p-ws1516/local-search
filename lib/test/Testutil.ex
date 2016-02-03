@@ -3,6 +3,8 @@ defmodule Testutil do
   def listen_port_base, do: 9000
   def send_port_base, do: 8000
 
+  def ip, do: {127, 0, 0, 1}
+
   #
   # initializes a default peer used for this test
   #
@@ -41,14 +43,26 @@ defmodule Testutil do
       {{127, 0, 0, 1}, (listen_port_base + id), {id, id}}
   end
 
-  def set_of(ids) do
-    Enum.map(ids, 
-      fn {id, :active} ->
-        get_peer_link(id)
-      {id, :passive} ->
-        get_passive_link(id)
+  defmacro assert_links(peer, []) do 
+    quote do
+      links = Peer.get_links( unquote(peer) )
+      assert links == []
+    end
+  end
+
+  defmacro assert_links(peer, ids) do 
+    quote do
+    links = Peer.get_links( unquote(peer) )
+    for {link, {id, status}} <- Enum.zip(links, unquote(ids)) do
+      case status do
+        :active ->
+          {address, port, {lat, lon}} = link
+           assert {address, port, {lat, lon}} == {ip, port, {id, id}}
+        :passive ->
+          {address, port, {lat, lon}} = link
+           assert {address, port, {lat, lon}} == {ip, (listen_port_base + id), {id, id}}
       end
-    ) |> Enum.into(HashSet.new)
-  end 
-	
+    end
+  end
+end
 end
