@@ -13,17 +13,21 @@ defmodule TCPCache do
 
 	def use_socket(state, ip, port, acceptor, action ) do
 		Agent.update(state.conn_cache, fn map -> (
+      Logger.debug 'TCPCache:: current state #{inspect state}'
 			result = if (Map.has_key?(map, {ip, port})) do
 						{:ok, Map.get(map, {ip, port})}
 					 else
 					 	opts = [:binary, packet: :line, active: false, reuseaddr: true, port: state.send_port]
-						case :gen_tcp.connect(Network.format_ip(ip), port, opts) do
+						case :gen_tcp.connect(Network.format_ip(ip), port, opts ) do
 							{:ok, socket} -> 
+                Logger.debug 'ok'
 								map = Map.put(map, {ip, port}, {socket, :inactive})
 					 			{:ok, {socket, :inactive}}
-							error -> error
+							error -> 
+                error
 					 	end
 					end
+      Logger.debug 'result #{inspect result}' 
 			case result do
 				{:ok, {sock, :active}} ->
 					Task.start fn -> action.(sock) end
@@ -41,9 +45,12 @@ defmodule TCPCache do
 	end
 
 	def close_all(state) do
+    Logger.debug 'TCPCache close all sockets'
 		Agent.update(state.conn_cache, 
 			fn map -> 
-				Enum.each(Map.values(map), fn {socket, _task} -> :gen_tcp.close(socket) end)
+				Enum.each(Map.values(map), fn {socket, _task} -> 
+          :gen_tcp.close(socket)
+        end)
 				%{}
 				 end)		
 	end

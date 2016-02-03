@@ -3,10 +3,10 @@ defmodule JoiningTest do
   doctest Joining
   import Testutil
 
-  test "Joining of one peer" do
+  test "001 Joining of one peer" do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [])
-
+    
     assert Peer.get_links( peer1 ) == set_of([{2, :active}])
     assert Peer.get_links( peer2 ) == set_of([{1, :passive}])
     
@@ -16,7 +16,7 @@ defmodule JoiningTest do
     :timer.sleep(200)
    end
 
-  test "Messages with ttl 0 should be discarded" do
+  test "002 Messages with ttl 0 should be discarded" do
      peer1 = peer_join(1, [init: true])
      peer2 = peer_join(2, [ttl: 0])
     
@@ -29,7 +29,7 @@ defmodule JoiningTest do
      :timer.sleep(200)
    end
 
-   test "Messages with too large hopcount should be discarded" do
+   test "003 Messages with too large hopcount should be discarded" do
      peer1 = peer_join(1, [init: true])
      peer2 = peer_join(2, [ttl: 1, bootstrap: 1])
      peer3 = peer_join(3, [ttl: 1, bootstrap: 2])
@@ -48,7 +48,7 @@ defmodule JoiningTest do
      :timer.sleep(200)
    end
 
-  test "Messages with ttl > 0 should not be discarded" do
+  test "004 Messages with ttl > 0 should not be discarded" do
     peer1 = peer_join(1, [init: true, ttl: 1])
     peer2 = peer_join(2, [bootstrap: 1, ttl: 1])
     peer3 = peer_join(3, [bootstrap: 2, ttl: 1])
@@ -64,7 +64,7 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
 
-  test "Three peers get to know each other" do
+  test "005 Three peers get to know each other" do
     peer1 = peer_join(1, [init: true])
     peer2 = peer_join(2, [bootstrap: 1])
     peer3 = peer_join(3, [bootstrap: 2])  
@@ -80,7 +80,7 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
 
-  test "New peer should select maxlinks random peers on startup" do
+  test "006 New peer should select maxlinks random peers on startup" do
     bootstrap_node = peer_join(0, [init: true])
     peers = for i <- 1..20, do: peer_join(i, [bootstrap: 0, maxlinks: 2]) 
 
@@ -94,7 +94,7 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
   
-  test "Peers should handle partial failure on startup" do
+  test "007 Peers should handle partial failure on startup" do
     peer1 = peer_join(1, [init: true, maxlinks: 1])
     peer2 = peer_join(2, [bootstrap: 1, maxlinks: 1])
     peer3 = peer_join(3, [bootstrap: 1, maxlinks: 2])  
@@ -122,7 +122,7 @@ defmodule JoiningTest do
     :timer.sleep(200)
   end
 
-  test "Peers should collect new links if no. links is below maxlinks" do
+  test "008 Peers should collect new links if no. links is below maxlinks" do
     peer1 = peer_join(1, [init: true, maxlinks: 3])
     peer2 = peer_join(2, [bootstrap: 1, maxlinks: 3])
     peer3 = peer_join(3, [bootstrap: 1, maxlinks: 3])  

@@ -46,6 +46,7 @@ defmodule Network do
 	Sends a message to the other address and listens to newly created socket
 	"""
 	def send_and_listen(reply_to, msg_id, {ip_address, port, _latlon}, msg, msg_props, state) do
+    Logger.debug 'Network:: Opening a new Socket at #{ inspect ip_address }:#{ port }'
 		unless is_ttl_zero?(msg_props, state) do
 		  TCPCache.use_socket(state, ip_address, port, 
 		  	&(loop_read(reply_to, &1, state)), 

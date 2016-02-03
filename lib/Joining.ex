@@ -93,6 +93,7 @@ defmodule Joining do
 	#
 	defp send_all(peer, links, msg_id, msg, msg_props, state) do
 		Enum.map( links, fn link -> 
+      Logger.debug 'Joining:: Sendling #{inspect msg} to #{inspect links}' 
 			spawn_link(fn -> 
 					Network.send_and_listen(peer, msg_id, link, msg, msg_props, state)
 			end)

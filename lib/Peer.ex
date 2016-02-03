@@ -48,7 +48,7 @@ defmodule Peer do
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
       Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
     end
-
+    
     :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
     :timer.apply_after(state.config[:startuptime] + state.config[:refreshtime], GenServer, :cast, [self, {:refresh}])
 
@@ -181,9 +181,9 @@ defmodule Peer do
 
   def handle_call( { :leave }, _from, state ) do
     supervisor = state.supervisor
+    Logger.info "#{inspect self} at port #{inspect state.listen_port} shutting down"
     Process.exit(supervisor, :normal)
     TCPCache.close_all(state)
-    Logger.info "#{inspect self} at port #{inspect state.listen_port} shutting down"
     { :stop, :normal, :ok, state}
   end
 
