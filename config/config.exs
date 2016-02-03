@@ -2,7 +2,7 @@
 # and its dependencies with the aid of the Mix.Config module.
 use Mix.Config
 
-config :gnutella, 
+config :localsearch, 
 	[ttl: 7,
 	 initlinks: 5,
 	 startuptime: 5000,

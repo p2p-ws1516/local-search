@@ -2,7 +2,7 @@ defmodule Main do
 
 	def main(args) do
 		{port, init, bootstrap_ip, bootstrap_port, latlon} = args |> parse_args
-    	config = Application.get_all_env :gnutella
+    config = Application.get_all_env :localsearch
 		{:ok, pid} = if init do
       		Peer.join(%{
 	      	location: latlon,
