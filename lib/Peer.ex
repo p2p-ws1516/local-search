@@ -239,7 +239,7 @@ defmodule Peer do
   end
 
   defp sort_links(links) do
-    Enum.sort(links, fn ({ip1, port1, latlon1},{ip2, port2, latlon2}) -> {ip1, latlon1} <= {ip2, latlon2} end)
+    Enum.sort(links, fn ({ip1, _port1, latlon1},{ip2, _port2, latlon2}) -> {ip1, latlon1} <= {ip2, latlon2} end)
   end
 
 end
