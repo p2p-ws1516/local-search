@@ -7,6 +7,7 @@ defmodule CLI do
     call = String.split input
     case call do
       ["help"] -> help
+      ["links", "get"] -> linksGet( dispatcher_pid )
       ["items", "get"] -> itemsGet  
       ["items", "add", name] -> itemsAdd name
       ["find", name, "in", km] -> query name, km
@@ -21,12 +22,19 @@ defmodule CLI do
 
     Usage:
     
+      links get               prints out all current links
+      
       help                    prints out this help message
       items get               list all items you manage
       items add <name>        add <name> to your list
       find <name> in <km>     find <name> in your local network in the radius of <km> kilometers
       leave                   leave the network
     "
+  end
+  
+  defp linksGet( peer ) do
+    # links = Enum.map(Peer.get_links( peer ), {{i1,i2,i3,i4}, port, { lon, lat }} -> "#{i1}.#{i2}");
+    IO.puts 'get links #{ inspect Peer.get_links( peer ) }'
   end
   
   defp itemsGet() do

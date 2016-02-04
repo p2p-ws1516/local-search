@@ -5,6 +5,7 @@ use Mix.Config
 config :localsearch, 
 	[ttl: 7,
 	 initlinks: 5,
+   maxlinks: 5,
 	 startuptime: 5000,
    refreshtime: 5000 ]
 

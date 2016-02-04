@@ -147,6 +147,7 @@ defmodule Peer do
   end
 
   def handle_cast( { :startup_finished }, state) do
+      Logger.debug 'state #{inspect state}' 
       state = Joining.select_links(state)
       Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
@@ -157,7 +158,7 @@ defmodule Peer do
   end
 
   def handle_cast( { :refresh }, state) do
-    if (Set.size(state.links) < state.config[:maxlinks]) do
+    if ( Set.size(state.links) < state.config[:maxlinks] and Map.has_key?(state, :bootstrap) ) do
       state = Map.put(state, :status, :init)
       init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {ip, port, _} -> {ip, port} end) end
       this = self()
