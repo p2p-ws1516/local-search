@@ -156,4 +156,14 @@ defmodule JoiningTest do
     :timer.sleep(200)
 
   end
+
+  test "009 Peers should not discover duplicate links" do
+    peer1 = peer_join(1, [init: true, maxlinks: 2, refreshtime: 50, sleep: 50, startuptime: 50])
+    peer2 = peer_join(2, [bootstrap: 1, maxlinks: 2])
+
+    :timer.sleep(500)
+
+    assert length(Peer.get_links(peer1)) == 1
+  end
+
 end

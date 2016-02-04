@@ -20,7 +20,7 @@ defmodule Testutil do
     sleep = Keyword.get(opts, :sleep, 200)
     config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime, refreshtime: refreshtime, sleep: sleep]
     { :ok, peer } = if (init) do
-        Peer.join(%{ location: {lat,lon}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), config: config })        
+        Peer.join(%{ location: {lat,lon}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), config: config, bootstrap: [] })        
     else
         Peer.join(%{ location: {lat,lon}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), bootstrap: [ {{127,0,0,1}, bootstrap_port} ], config: config })
     end
