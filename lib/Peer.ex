@@ -42,7 +42,7 @@ defmodule Peer do
 
     this = self
 
-    unless( Map.has_key?( state, :bootstrap) ) do
+    unless( Map.has_key?(state, :bootstrap) and not Enum.empty?(state[:bootstrap])) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
     else
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
