@@ -27,9 +27,8 @@ defmodule CLI do
 
     Usage:
     
-      links get               prints out all current links
-      
       help                    prints out this help message
+      links get               prints out all current links
       items get               list all items you manage
       items add <name>        add <name> to your list
       find <name>             find <name> in your local network in the radius of <km> kilometers
