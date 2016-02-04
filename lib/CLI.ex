@@ -1,20 +1,25 @@
 # Command Line Interface
 
 defmodule CLI do
+  use GenServer
   
-  def repl(dispatcher_pid) do
+  def start_link( ) do
+    GenServer.start_link(__MODULE__, :ok, [])
+  end
+  
+  def repl(cli, dispatcher_pid) do
     input = IO.gets "➤  "
     call = String.split input
     case call do
       ["help"] -> help
       ["links", "get"] -> linksGet( dispatcher_pid )
-      ["items", "get"] -> itemsGet  
-      ["items", "add", name] -> itemsAdd name
-      ["find", name, "in", km] -> query name, km
-      ["leave"] -> leave
+      ["items", "get"] -> itemsGet( dispatcher_pid )
+      ["items", "add", name] -> itemsAdd( dispatcher_pid, name )
+      ["find", name] -> query cli, dispatcher_pid, name
+      ["leave"] -> leave dispatcher_pid
       _ -> help
     end
-    unless call==["leave"] do repl(dispatcher_pid) end
+    unless call==["leave"] do CLI.repl( cli, dispatcher_pid ) end
   end
   
   defp help() do
@@ -27,7 +32,7 @@ defmodule CLI do
       help                    prints out this help message
       items get               list all items you manage
       items add <name>        add <name> to your list
-      find <name> in <km>     find <name> in your local network in the radius of <km> kilometers
+      find <name>             find <name> in your local network in the radius of <km> kilometers
       leave                   leave the network
     "
   end
@@ -37,21 +42,54 @@ defmodule CLI do
     IO.puts 'get links #{ inspect Peer.get_links( peer ) }'
   end
   
-  defp itemsGet() do
-    IO.puts "nothing inside"
+  defp itemsGet( peer ) do
+    IO.puts '#{ inspect Peer.get_items( peer ) }'
   end
   
-  defp query( name, km ) do
-    IO.puts "looking for #{name} in #{km}km radius..."
+  defp query( this, peer, name ) do
+    Peer.query( peer, name, [], this )
+    IO.puts "looking for #{name}"
   end
 
-  defp itemsAdd ( name ) do 
-    IO.puts "adding #{name} to set"
+  defp itemsAdd( peer, name ) do 
+    Peer.add_item( peer, name )
+    IO.puts "#{name} added to set"
   end
   
-  defp leave() do
+  defp leave( peer ) do
+    Peer.leave( peer )
     IO.puts "bye bye ..."
+  end
+  
+  def handle_info({ :query_hit, query, owner }, state) do
+    IO.puts 'found #{inspect query} at #{owner}' 
+    {:noreply, state}
   end
 
 end
-
+#
+#
+#
+# defmodule Observer do
+#   use GenServer
+#   require Logger
+#   
+#   def run( ) do
+#     GenServer.start_link(__MODULE__, %{}, [])
+#   end
+#
+#   def init( state ) do
+#     {:ok, %{}}
+#   end
+#   
+#   # def handle_info({:query_hit, what, _from }, state ) do 
+#   #   Logger.debug 'hit'
+#   #   {:noreply, state}
+#   # end
+#   
+#   def handle_call(_msg, state) do
+#     Logger.debug '_msg #{inspect _msg}' 
+#     {:noreply, state}
+#   end
+#   
+# end

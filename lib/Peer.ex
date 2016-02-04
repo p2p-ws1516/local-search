@@ -58,6 +58,10 @@ defmodule Peer do
   def add_item(peer_pid, item) do
     GenServer.call(peer_pid, {:add_item, item})
   end
+  
+  def get_items(peer_pid) do
+    GenServer.call(peer_pid, {:get_items});
+  end
 
   #
   # possible opts:
@@ -175,6 +179,12 @@ defmodule Peer do
     state = Map.update!(state, :inventory, fn items -> [item | items] end)
     {:reply, :ok, state }
   end
+  
+   def handle_call( { :get_items }, _from, state) do
+    {:reply, state.inventory, state }
+   end
+  
+
 
   def handle_call( { :get_links }, _from, state ) do 
     { :reply, sort_links(state.links), state }

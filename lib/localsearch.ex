@@ -18,7 +18,9 @@ defmodule Main do
 	        bootstrap: [ { bootstrap_ip,bootstrap_port } ]
 	      }) 
     	end
-    Agent.start_link fn -> CLI.repl(pid) end
+    {:ok, cli} = CLI.start_link()
+    CLI.repl( cli, pid )
+    # Agent.start_link fn -> CLI.repl(pid) end
 	end
   
 	defp parse_args(args) do
