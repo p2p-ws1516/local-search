@@ -7,7 +7,8 @@ defmodule Main do
       		Peer.join(%{
 	      	location: latlon,
 	        listen_port: port,
-	        config: config
+	        config: config,
+	        bootstrap: []
 	      }) 
 	    else
 	      Peer.join(%{
