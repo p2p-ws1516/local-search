@@ -13,11 +13,11 @@ defmodule Testutil do
     maxlinks = Keyword.get(opts, :maxlinks, 2)
     bootstrap_port = 9000 + Keyword.get(opts, :bootstrap, 1)
     init = Keyword.get(opts, :init, false)
-    startuptime = Keyword.get(opts, :startuptime, 100)
+    startuptime = Keyword.get(opts, :startuptime, 200)
     refreshtime = Keyword.get(opts, :refreshtime, 60000)  # we usually do not want this in tests
     lat = Keyword.get(opts, :lat, id)
     lon = Keyword.get(opts, :lon, id)
-    sleep = Keyword.get(opts, :sleep, 200)
+    sleep = Keyword.get(opts, :sleep, 400)
     config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime, refreshtime: refreshtime, sleep: sleep]
     { :ok, peer } = if (init) do
         Peer.join(%{ location: {lat,lon}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), config: config })        
