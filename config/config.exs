@@ -7,7 +7,8 @@ config :localsearch,
 	 initlinks: 5,
    maxlinks: 5,
 	 startuptime: 5000,
-   refreshtime: 5000 ]
+   refreshtime: 60000,
+   maxlinks: 5 ]
 
 # This configuration is loaded before any dependency and is restricted
 # to this project. If another project depends on this project, this

@@ -42,7 +42,7 @@ defmodule Peer do
 
     this = self
 
-    unless( Map.has_key?( state, :bootstrap) ) do
+    unless( Map.has_key?(state, :bootstrap) and not Enum.empty?(state[:bootstrap])) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
     else
       Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
@@ -177,7 +177,7 @@ defmodule Peer do
   end
 
   def handle_call( { :get_links }, _from, state ) do 
-    { :reply, state.links, state }
+    { :reply, sort_links(state.links), state }
   end
 
   def handle_call( { :leave }, _from, state ) do
@@ -236,7 +236,11 @@ defmodule Peer do
   end
 
   defp format_links(state) do
-    "#{Enum.sort(state.links) |> Enum.map(fn l -> "\t" <> to_string(Network.format(l)) end) |> Enum.join("\n")}"
+    "#{sort_links(state.links) |> Enum.map(fn l -> "\t" <> to_string(Network.format(l)) end) |> Enum.join("\n")}"
+  end
+
+  defp sort_links(links) do
+    Enum.sort(links, fn ({ip1, _port1, latlon1},{ip2, _port2, latlon2}) -> {ip1, latlon1} <= {ip2, latlon2} end)
   end
 
 end

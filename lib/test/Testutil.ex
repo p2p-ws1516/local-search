@@ -3,6 +3,8 @@ defmodule Testutil do
   def listen_port_base, do: 9000
   def send_port_base, do: 8000
 
+  def ip, do: {127, 0, 0, 1}
+
   #
   # initializes a default peer used for this test
   #
@@ -11,11 +13,11 @@ defmodule Testutil do
     maxlinks = Keyword.get(opts, :maxlinks, 2)
     bootstrap_port = 9000 + Keyword.get(opts, :bootstrap, 1)
     init = Keyword.get(opts, :init, false)
-    startuptime = Keyword.get(opts, :startuptime, 100)
+    startuptime = Keyword.get(opts, :startuptime, 200)
     refreshtime = Keyword.get(opts, :refreshtime, 60000)  # we usually do not want this in tests
     lat = Keyword.get(opts, :lat, id)
     lon = Keyword.get(opts, :lon, id)
-    sleep = Keyword.get(opts, :sleep, 200)
+    sleep = Keyword.get(opts, :sleep, 400)
     config = [ttl: ttl, maxlinks: maxlinks, startuptime: startuptime, refreshtime: refreshtime, sleep: sleep]
     { :ok, peer } = if (init) do
         Peer.join(%{ location: {lat,lon}, send_port: (send_port_base + id), listen_port: (listen_port_base + id), config: config })        
@@ -41,14 +43,26 @@ defmodule Testutil do
       {{127, 0, 0, 1}, (listen_port_base + id), {id, id}}
   end
 
-  def set_of(ids) do
-    Enum.map(ids, 
-      fn {id, :active} ->
-        get_peer_link(id)
-      {id, :passive} ->
-        get_passive_link(id)
+  defmacro assert_links(peer, []) do 
+    quote do
+      links = Peer.get_links( unquote(peer) )
+      assert links == []
+    end
+  end
+
+  defmacro assert_links(peer, ids) do 
+    quote do
+    links = Peer.get_links( unquote(peer) )
+    for {link, {id, status}} <- Enum.zip(links, unquote(ids)) do
+      case status do
+        :active ->
+          {address, port, {lat, lon}} = link
+           assert {address, port, {lat, lon}} == {ip, port, {id, id}}
+        :passive ->
+          {address, port, {lat, lon}} = link
+           assert {address, port, {lat, lon}} == {ip, (listen_port_base + id), {id, id}}
       end
-    ) |> Enum.into(HashSet.new)
-  end 
-	
+    end
+  end
+end
 end

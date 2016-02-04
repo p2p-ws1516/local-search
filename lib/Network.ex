@@ -11,6 +11,7 @@ defmodule Network do
 	def listen(reply_to, state) do
 		{:ok, socket} = :gen_tcp.listen(state.listen_port,
 			[:binary, packet: :line, active: false, reuseaddr: true])
+    TCPCache.put( state, nil, state.listen_port, socket )
 		Logger.debug "Accepting connections on port #{state.listen_port}"
 		loop_acceptor(reply_to, socket, state)
 	end

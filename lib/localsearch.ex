@@ -7,7 +7,8 @@ defmodule Main do
       		Peer.join(%{
 	      	location: latlon,
 	        listen_port: port,
-	        config: config
+	        config: config,
+	        bootstrap: []
 	      }) 
 	    else
 	      Peer.join(%{
@@ -37,7 +38,7 @@ defmodule Main do
 				lat: lat,
 				lon: lon], 
 				_, _} -> 
-				{elem(Integer.parse(port), 0), init, nil, nil, {Float.parse(lat), Float.parse(lon)}}
+				{elem(Integer.parse(port), 0), init, nil, nil, {elem(Float.parse(lat), 0), elem(Float.parse(lon), 0)}}
 			{[	
 				port: port, 
 				bip: bip, 
