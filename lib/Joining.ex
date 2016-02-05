@@ -63,8 +63,8 @@ defmodule Joining do
 	def select_links(state) do
 		newlinks = Set.difference(state.pending_links, state.links)
 	    links = Set.to_list(newlinks) |> Enum.shuffle |> Enum.take(state.config[:maxlinks] - Set.size(state.links))
-      	state = Map.update!(state, :links, fn old -> Set.union(old, Enum.into(links, HashSet.new)) end)
-      	state = Map.put(state, :pending_links, HashSet.new)
+      state = Map.update!(state, :links, fn old -> Set.union(old, Enum.into(links, HashSet.new)) end)
+      state = Map.put(state, :pending_links, HashSet.new)
 		state
 	end
 

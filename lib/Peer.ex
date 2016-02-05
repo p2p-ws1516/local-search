@@ -58,6 +58,10 @@ defmodule Peer do
   def add_item(peer_pid, item) do
     GenServer.call(peer_pid, {:add_item, item})
   end
+  
+  def get_items(peer_pid) do
+    GenServer.call(peer_pid, {:get_items});
+  end
 
   #
   # possible opts:
@@ -147,6 +151,7 @@ defmodule Peer do
   end
 
   def handle_cast( { :startup_finished }, state) do
+      Logger.debug 'state #{inspect state}' 
       state = Joining.select_links(state)
       Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
@@ -157,7 +162,7 @@ defmodule Peer do
   end
 
   def handle_cast( { :refresh }, state) do
-    if (Set.size(state.links) < state.config[:maxlinks]) do
+    if ( Set.size(state.links) < state.config[:maxlinks] and Map.has_key?(state, :bootstrap) ) do
       state = Map.put(state, :status, :init)
       init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {ip, port, _} -> {ip, port} end) end
       this = self()
@@ -174,6 +179,12 @@ defmodule Peer do
     state = Map.update!(state, :inventory, fn items -> [item | items] end)
     {:reply, :ok, state }
   end
+  
+   def handle_call( { :get_items }, _from, state) do
+    {:reply, state.inventory, state }
+   end
+  
+
 
   def handle_call( { :get_links }, _from, state ) do 
     { :reply, sort_links(state.links), state }

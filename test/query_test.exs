@@ -137,7 +137,7 @@ defmodule QueryTest do
 
     Peer.query(new_peer, "Foo bar", [], self)
 
-    assert_receive({:query_hit, ["Foo bar"], {_,_, {numpeers,numpeers}}}, 500)
+    assert_receive({:query_hit, ["Foo bar"], {_,_, {numpeers,numpeers}}}, 2000)
     refute_receive({:query_hit, _, _})    
 
     :ok = Peer.leave( bootstrap_node )

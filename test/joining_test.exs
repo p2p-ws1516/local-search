@@ -145,7 +145,7 @@ defmodule JoiningTest do
     Peer.query(peer4, "Item", [], self)
     
     # Wait until peer 4 is re-initialized
-    :timer.sleep(1000)
+    :timer.sleep(1200)
     
     peer4_links = Peer.get_links( peer4 )
     assert length( peer4_links ) == 2
