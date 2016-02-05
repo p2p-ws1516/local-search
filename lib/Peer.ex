@@ -44,9 +44,9 @@ defmodule Peer do
     this = self
 
     unless( Map.has_key?(state, :bootstrap) and not Enum.empty?(state[:bootstrap])) do
-      Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
+      File.write "log.log", "Initial node in overlay at #{format_latlon(state.location)}\n"
     else
-      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
+      File.write "log.log", "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}\n"
       Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
     end
     
@@ -143,7 +143,7 @@ defmodule Peer do
   end
 
   def handle_cast( {:brokenlink, link, error }, state ) do
-    Logger.info "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}"
+    File.write "log.log", "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}\n"
     state = Map.update!(state, :links, fn links -> 
       Enum.into(Enum.filter(links, fn {_, ip, port, _} -> {ip, port} != link end), HashSet.new) 
     end)
@@ -157,9 +157,10 @@ defmodule Peer do
       state = Joining.select_links(state)
       Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
-      Logger.info (
+      
+      File.write! "log.log", (
         "#{inspect self} at port #{inspect state.listen_port} finished exploring overlay\n"<>
-        "Links:\n#{format_links(state)}")
+        "Links:\n#{format_links(state)}\n")
       {:noreply, state}
   end
 
@@ -194,7 +195,8 @@ defmodule Peer do
 
   def handle_call( { :leave }, _from, state ) do
     supervisor = state.supervisor
-    Logger.info "#{inspect self} at port #{inspect state.listen_port} shutting down"
+    
+    File.write "log.log", "#{inspect self} at port #{inspect state.listen_port} shutting down\n"
     Process.exit(supervisor, :normal)
     TCPCache.close_all(state)
     { :stop, :normal, :ok, state}
@@ -221,7 +223,7 @@ defmodule Peer do
   end
 
   def handle_info( anything, state ) do
-    Logger.info inspect anything
+    File.write "log.log", "#{inspect anything}\n"
     { :stop, anything, state}
   end
 
