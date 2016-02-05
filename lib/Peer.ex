@@ -147,7 +147,7 @@ defmodule Peer do
     state = Map.update!(state, :links, fn links -> 
       Enum.into(Enum.filter(links, fn {_, ip, port, _} -> {ip, port} != link end), HashSet.new) 
     end)
-    TCPCache.delete(state, link)
+    TCPCache.remove(state, link)
     Logger.debug "#{inspect state.listen_port} Current list of links:\n#{format_links(state)}"
     {:noreply, state}
   end
