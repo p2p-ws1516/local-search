@@ -23,6 +23,7 @@ defmodule Network do
 			_error -> exit(:shutdown)
 		end
 		{:ok, {address, port}} = :inet.peername(client)
+    Logger.debug 'port #{inspect port}' 
 		TCPCache.put(state, address, port, client)
 		TCPCache.use_socket(state, address, port, &(loop_read(reply_to, &1, state)), nil)
 		loop_acceptor(reply_to, socket, state)
@@ -30,6 +31,7 @@ defmodule Network do
 
 	defp loop_read(reply_to, socket, state) do
 		msg = read_msg(reply_to, socket, state)
+    Logger.debug 'msg #{inspect msg}' 
 		GenServer.cast(reply_to, msg)
 		loop_read(reply_to, socket, state)
 	end
@@ -49,6 +51,7 @@ defmodule Network do
 	def send_and_listen(reply_to, msg_id, {ip_address, port, _latlon}, msg, msg_props, state) do
     Logger.debug 'Network:: Opening a new Socket at #{ inspect ip_address }:#{ port }'
 		unless is_ttl_zero?(msg_props, state) do
+      Logger.debug 'msg #{inspect msg}' 
 		  TCPCache.use_socket(state, ip_address, port, 
 		  	&(loop_read(reply_to, &1, state)), 
 		  	&(send_impl(msg_id, &1, msg, msg_props, state)))

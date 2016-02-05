@@ -32,6 +32,7 @@ defmodule TCPCache do
 				{:ok, {sock, :active}} ->
 					Task.start fn -> action.(sock) end
 				{:ok, {sock, :inactive}} -> 
+        Logger.debug 'i'
 					Task.start fn -> acceptor.(sock) end
 					unless action == nil do
 						Task.start fn -> action.(sock) end				  

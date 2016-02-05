@@ -12,6 +12,7 @@ defmodule Peer do
   Starts the Peer.
   """
   def join( state ) do
+    IO.puts inspect state.logger
     GenServer.start_link(__MODULE__, state, [])
   end
 
@@ -45,12 +46,27 @@ defmodule Peer do
     unless( Map.has_key?(state, :bootstrap) and not Enum.empty?(state[:bootstrap])) do
       Logger.info "Initial node in overlay at #{format_latlon(state.location)}"
     else
-      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
-      Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
+      unless state.logger do
+        Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}"
+        Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
+      end
     end
     
-    :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
-    :timer.apply_after(state.config[:startuptime] + state.config[:refreshtime], GenServer, :cast, [self, {:refresh}])
+    unless state.logger do
+      :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
+      :timer.apply_after(state.config[:startuptime] + state.config[:refreshtime], GenServer, :cast, [self, {:refresh}])
+      
+      # Connect to log
+      msg = {:log, "omfg"}
+      msg_id =  Network.get_msg_id(msg, state.config)
+      
+      logger = spawn_link(fn ->
+        Network.send_and_listen(this, msg_id, {{127,0,0,1},9876,nil}, msg, %{logger: true}, state) 
+      end)
+      
+      state = Map.put( state, :logger, logger)
+    end
+    
 
     {:ok, state }
   end
@@ -123,6 +139,13 @@ defmodule Peer do
   def handle_cast( { :query, msg_id, from_link, query, msg_props }, state) do
     this = self()
     Task.start_link fn -> Query.handle_query(this, msg_id, from_link, query, msg_props, state) end
+    {:noreply, state}
+  end
+  
+  def handle_cast( {:log, what}, state )do
+    
+    IO.puts "log #{what}\n"
+    
     {:noreply, state}
   end
 
