@@ -17,6 +17,7 @@ defmodule Peer do
 
   def init( state ) do
     Process.flag(:trap_exit, true)
+    state = Map.put( state, :id, generate_id(state) )
     state = Map.put( state, :links, HashSet.new )
     state = Map.put( state, :pending_links, HashSet.new )
     state = Map.put( state, :mymessages, MessageStore.empty )
@@ -100,14 +101,14 @@ defmodule Peer do
     {:noreply, state}
   end
 
-  def handle_cast( { :pong, correlation_id, {ip, port, latlon}, msg_props}, state) do
+  def handle_cast( { :pong, correlation_id, {id, ip, port, latlon}, msg_props}, state) do
       this = self
       cond do
         MessageStore.is_own_message(state, correlation_id) ->
-          state = add_pending_link(state, {ip, port, latlon})
+          state = add_pending_link(state, {id, ip, port, latlon})
         MessageStore.is_other_message(state, correlation_id) ->
           issuer = MessageStore.get_other_message(state, correlation_id)
-          Joining.reply(this, correlation_id, issuer, {ip, port, latlon}, msg_props, state)
+          Joining.reply(this, correlation_id, issuer, {id, ip, port, latlon}, msg_props, state)
         true ->
           Logger.warn "Unexpected pong referring to #{inspect correlation_id}"
       end
@@ -141,11 +142,12 @@ defmodule Peer do
       {:noreply, state}
   end
 
-  def handle_cast( {:brokenlink, link, error }, state ) do 
+  def handle_cast( {:brokenlink, link, error }, state ) do
     Logger.info "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}"
     state = Map.update!(state, :links, fn links -> 
-      Enum.into(Enum.filter(links, fn {ip, port, _} -> {ip, port} != link end), HashSet.new) 
+      Enum.into(Enum.filter(links, fn {_, ip, port, _} -> {ip, port} != link end), HashSet.new) 
     end)
+    TCPCache.delete(state, link)
     Logger.debug "#{inspect state.listen_port} Current list of links:\n#{format_links(state)}"
     {:noreply, state}
   end
@@ -156,7 +158,7 @@ defmodule Peer do
       Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
       Logger.info (
-        "#{inspect self} at port #{inspect state.listen_port} finished startup\n"<>
+        "#{inspect self} at port #{inspect state.listen_port} finished exploring overlay\n"<>
         "Links:\n#{format_links(state)}")
       {:noreply, state}
   end
@@ -164,7 +166,7 @@ defmodule Peer do
   def handle_cast( { :refresh }, state) do
     if ( Set.size(state.links) < state.config[:maxlinks] and Map.has_key?(state, :bootstrap) ) do
       state = Map.put(state, :status, :init)
-      init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {ip, port, _} -> {ip, port} end) end
+      init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {_, ip, port, _} -> {ip, port} end) end
       this = self()
       Task.start_link fn -> Joining.join(this, state, init_links) end
       :timer.apply_after(state.config[:startuptime], GenServer, :cast, [self, {:startup_finished}])
@@ -187,7 +189,7 @@ defmodule Peer do
 
 
   def handle_call( { :get_links }, _from, state ) do 
-    { :reply, sort_links(state.links), state }
+    { :reply, Enum.map(sort_links(state.links), fn { _, ip, port, latlon } -> {ip, port, latlon} end), state }
   end
 
   def handle_call( { :leave }, _from, state ) do
@@ -233,7 +235,7 @@ defmodule Peer do
   end 
 
   defp add_pending_link(state, link) do
-    if state.status == :init and not Set.member?(state.links, link) do
+    if state.status == :init and not Enum.any?(state.links, fn {id, _, _, _} -> id == elem(link, 0) end) do
       Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new PENDING link #{inspect link}"
       Map.update!(state, :pending_links, fn links -> Set.put(links, link) end)
     else
@@ -250,7 +252,13 @@ defmodule Peer do
   end
 
   defp sort_links(links) do
-    Enum.sort(links, fn ({ip1, _port1, latlon1},{ip2, _port2, latlon2}) -> {ip1, latlon1} <= {ip2, latlon2} end)
+    Enum.sort(links, fn ({_id1, ip1, _port1, latlon1}, {_id2, ip2, _port2, latlon2}) -> {ip1, latlon1} <= {ip2, latlon2} end)
+  end
+
+  defp generate_id(state) do
+    :crypto.hash(:sha256, 
+      "#{inspect :inet.getifaddrs}#{inspect :calendar.universal_time()}#{inspect state.listen_port}#{inspect state.location}") 
+      |> Base.encode16
   end
 
 end

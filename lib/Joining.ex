@@ -5,10 +5,10 @@ defmodule Joining do
 	def join(peer, state, bootstrap_links) do
 		msg_props = %{latlon: state.location}
 		msg_props = Network.reset_props(msg_props, state.config)
-		msg = {:ping, nil, {nil, state.listen_port, state.location}}
+		msg = {:ping, nil, {state.id, nil, state.listen_port, state.location}}
 		msg_id =  Network.get_msg_id(msg, state.config)
 		MessageStore.put_own_message(state, msg_id, nil)
-		send_all(peer, Enum.map(bootstrap_links, fn {ip, port} -> {ip, port, nil} end), msg_id, msg, msg_props, state)
+		send_all(peer, Enum.map(bootstrap_links, fn {ip, port} -> {nil, ip, port, nil} end), msg_id, msg, msg_props, state)
 	end
 
 	@doc ~S"""
@@ -80,7 +80,7 @@ defmodule Joining do
 		unless MessageStore.is_known_message(state, msg_id) do #Unless we have already seen this ping
 			MessageStore.put_other_message(state, msg_id, from_link)
 			msg_props = Map.put(msg_props, :latlon, state.location)
-			reply(peer, msg_id, from_link, {nil, state.listen_port, state.location}, msg_props, state)
+			reply(peer, msg_id, from_link, {state.id, nil, state.listen_port, state.location}, msg_props, state)
  			links = Set.delete(state.links, from_link)
  			msg = {:ping, msg_id, source_link}
  			new_msg_id = Network.get_msg_id(msg, state.config)

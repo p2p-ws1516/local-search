@@ -43,10 +43,14 @@ defmodule Network do
 			|> Base.encode16
 	end
 
+	def send_and_listen(reply_to, msg_id, {ip_address, port, latlon}, msg, msg_props, state) do
+		send_and_listen(reply_to, msg_id, {nil, ip_address, port, latlon}, msg, msg_props, state)
+	end
+
 	@doc ~S"""
 	Sends a message to the other address and listens to newly created socket
 	"""
-	def send_and_listen(reply_to, msg_id, {ip_address, port, _latlon}, msg, msg_props, state) do
+	def send_and_listen(reply_to, msg_id, {_, ip_address, port, _latlon}, msg, msg_props, state) do
     Logger.debug 'Network:: Opening a new Socket at #{ inspect ip_address }:#{ port }'
 		unless is_ttl_zero?(msg_props, state) do
 		  TCPCache.use_socket(state, ip_address, port, 
@@ -80,6 +84,7 @@ defmodule Network do
 			{:joined} ->
 				JSON.encode(
 					[id: msg_id,
+					 peerid: state.id,
 					 type: :joined,
 					 props: msg_props ]
 				)
@@ -130,7 +135,7 @@ defmodule Network do
 					:ping ->
 						correlation_id = msg["correlationid"]
 						if (correlation_id == nil) do correlation_id = msg["id"] end
-						[source_ip, source_port, source_latlon] = msg["sourcelink"]
+						[id, source_ip, source_port, source_latlon] = msg["sourcelink"]
 						if (source_ip == nil) do # ping from direct neighbour, doesnt know his own IP
 							source_ip = address
 							source_port = send_port
@@ -141,11 +146,11 @@ defmodule Network do
 						{:ping, 
 							correlation_id, 
 							{address, send_port, List.to_tuple(props[:latlon])},
-							{source_ip, source_port, source_latlon},
+							{id, source_ip, source_port, source_latlon},
 							props
 						}
 					:pong ->
-						[ip, port, latlon] = msg["link"]
+						[id, ip, port, latlon] = msg["link"]
 						if (ip == nil) do # pong is direct neighbour, doesnt know his own IP
 							ip = address
 						else
@@ -154,10 +159,10 @@ defmodule Network do
 						latlon = List.to_tuple(latlon)
 						{:pong, 
 							msg["correlationid"], 
-							{ip, port, latlon},
+							{id, ip, port, latlon},
 							props}
 					:joined ->
-						{:newlink, {address, send_port, List.to_tuple(props[:latlon])}}
+						{:newlink, {msg["peerid"], address, send_port, List.to_tuple(props[:latlon])}}
 					:query ->
 						correlation_id = msg["correlationid"]
 						if (correlation_id == nil) do correlation_id = msg["id"] end
@@ -230,6 +235,10 @@ defmodule Network do
   	"""
 	def format({ip, port, {lat, lon}}) do
 		to_char_list "#{format_ip(ip)}:#{port}@#{lat},#{lon}"		
+	end
+
+	def format({id, ip, port, {lat, lon}}) do
+		to_char_list "#{id},#{format_ip(ip)}:#{port}@#{lat},#{lon}"		
 	end
 
 	@doc ~S"""

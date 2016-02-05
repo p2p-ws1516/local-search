@@ -11,6 +11,10 @@ defmodule TCPCache do
 		Agent.update(state.conn_cache, fn map -> Map.put(map, {ip, port}, {socket, :inactive}) end)
 	end
 
+	def remove(state, ip, port) do
+		Agent.update(state.conn_cache, fn map -> Map.delete(map, {ip, port}))
+	end
+
 	def use_socket(state, ip, port, acceptor, action ) do
 		Agent.update(state.conn_cache, fn map -> (
       Logger.debug 'TCPCache:: current state #{inspect state}'

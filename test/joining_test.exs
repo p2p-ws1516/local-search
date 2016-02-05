@@ -164,6 +164,9 @@ defmodule JoiningTest do
     :timer.sleep(500)
 
     assert length(Peer.get_links(peer1)) == 1
+
+    Peer.leave(peer1)
+    Peer.leave(peer2)
   end
 
 end
