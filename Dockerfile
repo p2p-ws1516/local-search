@@ -4,7 +4,8 @@ COPY . local-search/
  
 WORKDIR local-search/
 
-# CMD ls -lisa
 RUN mix local.hex --force
 
-CMD mix test 
+EXPOSE 9999 9999
+
+CMD mix escript.build && ./localsearch --port=9999 --init

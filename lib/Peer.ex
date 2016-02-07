@@ -26,7 +26,7 @@ defmodule Peer do
     state = Map.put( state, :inventory, [])
     state = Map.put( state, :conn_cache, TCPCache.new)
     
-    WebLog.log( state )
+    WebLog.log( "boot", state )
 
     import Supervisor.Spec
 
@@ -94,6 +94,7 @@ defmodule Peer do
 
   def handle_cast( { :newlink, link }, state ) do
     state = add_link(state, link)
+    # WebLog.log( "refresh", state )
     {:noreply, state}
   end
 
@@ -151,6 +152,7 @@ defmodule Peer do
     end)
     TCPCache.remove(state, link)
     Logger.debug "#{inspect state.listen_port} Current list of links:\n#{format_links(state)}"
+    WebLog.log( "refresh", state )
     {:noreply, state}
   end
 
@@ -167,6 +169,7 @@ defmodule Peer do
   end
 
   def handle_cast( { :refresh }, state) do
+    WebLog.log( "refresh", state )
     if ( Set.size(state.links) < state.config[:maxlinks] and Map.has_key?(state, :bootstrap) ) do
       state = Map.put(state, :status, :init)
       init_links = if Enum.empty?(state.links) do state.bootstrap else Enum.map(state.links, fn {_, ip, port, _} -> {ip, port} end) end
@@ -198,6 +201,7 @@ defmodule Peer do
   def handle_call( { :leave }, _from, state ) do
     supervisor = state.supervisor
     
+    WebLog.log( "leave", state )
     File.write "log.log", "#{inspect self} at port #{inspect state.listen_port} shutting down\n"
     Process.exit(supervisor, :normal)
     TCPCache.close_all(state)
@@ -232,7 +236,9 @@ defmodule Peer do
   defp add_link(state, link) do
     if not Set.member?(state.links, link) do
       Logger.debug "#{inspect self()} listening at #{state.listen_port} got a new link #{inspect link}"
-      Map.update!(state, :links, fn links -> Set.put(links, link) end)
+      state = Map.update!(state, :links, fn links -> Set.put(links, link) end)
+      WebLog.log( "refresh", state )
+      state
     else
       state
     end

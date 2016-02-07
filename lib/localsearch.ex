@@ -19,15 +19,26 @@ defmodule Main do
 	      }) 
     	end
     {:ok, cli} = CLI.start_link()
-    CLI.repl( cli, pid )
+    unless init do CLI.repl( cli, pid ) end
     # Agent.start_link fn -> CLI.repl(pid) end
+    if init do loop() end
 	end
+  defp loop() do
+    receive do
+      _ -> 
+        IO.puts "nothing"
+        loop();
+    end
+    loop();
+  end
   
 	defp parse_args(args) do
 		
 		default_bootstrap_ip = {127, 0, 0, 1}
 		default_bootstrap_port = 9999
-		default_latlon = {10.123123123, 98.123435353}
+    :random.seed(:os.timestamp) 
+		# default_latlon = {10.123123123, 98.123435353}
+		default_latlon = {:random.uniform*160-80, :random.uniform*160-80 }
 		case OptionParser.parse(args, switches: [init: :boolean]) do
 			{[
 				port: port, 
