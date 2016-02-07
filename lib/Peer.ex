@@ -25,6 +25,8 @@ defmodule Peer do
     state = Map.put( state, :status, :init)
     state = Map.put( state, :inventory, [])
     state = Map.put( state, :conn_cache, TCPCache.new)
+    
+    WebLog.log( state )
 
     import Supervisor.Spec
 
