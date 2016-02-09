@@ -1,17 +1,16 @@
 defmodule WebLog do
   
   def log( reason, state ) do
-    {:ok, socket} = :gen_udp.open(9877)
-    {_status, msg} = JSON.encode(
+    {log_ip, log_port} = state.log
+    unless log_ip == nil or log_port == nil do
+      {:ok, socket} = :gen_udp.open(state.listen_port)
+      {_status, msg} = JSON.encode(
       [type: reason,
        loc: state.location,
        links: Set.to_list( state.links ) ])
-    # remote server
-    :gen_udp.send(socket, {188,226,178,57}, 9876, msg )
-    
-    # local server
-    # :gen_udp.send(socket, {127,0,0,1}, 9876, msg )
-    :gen_udp.close(socket)
+      :gen_udp.send(socket, log_ip, log_port, msg )
+      :gen_udp.close(socket)      
+    end
   end
   
 end

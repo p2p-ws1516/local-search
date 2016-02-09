@@ -46,9 +46,9 @@ defmodule Peer do
     this = self
 
     unless( Map.has_key?(state, :bootstrap) and not Enum.empty?(state[:bootstrap])) do
-      File.write "log.log", "Initial node in overlay at #{format_latlon(state.location)}\n"
+      Logger.info "Initial node in overlay at #{format_latlon(state.location)}\n"
     else
-      File.write "log.log", "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}\n"
+      Logger.info "Joining overlay using bootstrap node #{Network.format(hd(state.bootstrap))} at #{format_latlon(state.location)}\n"
       Task.start_link fn -> Joining.join(this, state, state.bootstrap) end
     end
     
@@ -146,7 +146,7 @@ defmodule Peer do
   end
 
   def handle_cast( {:brokenlink, link, error }, state ) do
-    File.write "log.log", "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}\n"
+    Logger.info "#{inspect self}, #{inspect state.listen_port}: Link is broken #{inspect link} because of #{inspect error}\n"
     state = Map.update!(state, :links, fn links -> 
       Enum.into(Enum.filter(links, fn {_, ip, port, _} -> {ip, port} != link end), HashSet.new) 
     end)
@@ -162,7 +162,7 @@ defmodule Peer do
       Joining.announce_join(self, state)
       state = Map.put(state, :status, :ready)
       
-      File.write! "log.log", (
+      Logger.info (
         "#{inspect self} at port #{inspect state.listen_port} finished exploring overlay\n"<>
         "Links:\n#{format_links(state)}\n")
       {:noreply, state}
@@ -202,7 +202,7 @@ defmodule Peer do
     supervisor = state.supervisor
     
     WebLog.log( "leave", state )
-    File.write "log.log", "#{inspect self} at port #{inspect state.listen_port} shutting down\n"
+    Logger.info "#{inspect self} at port #{inspect state.listen_port} shutting down\n"
     Process.exit(supervisor, :normal)
     TCPCache.close_all(state)
     { :stop, :normal, :ok, state}
