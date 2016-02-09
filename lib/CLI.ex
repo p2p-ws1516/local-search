@@ -2,6 +2,8 @@
 
 defmodule CLI do
   use GenServer
+
+  require Logger
   
   def start_link( ) do
     GenServer.start_link(__MODULE__, :ok, [])
@@ -61,7 +63,7 @@ defmodule CLI do
   end
   
   def handle_info({ :query_hit, query, owner }, state) do
-    File.write! "log.log", 'found #{inspect query} at #{inspect owner}\n' 
+    Logger.info 'found #{inspect query} at #{inspect owner}\n' 
     {:noreply, state}
   end
 
