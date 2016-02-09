@@ -8,23 +8,19 @@
 
 ## Run
 
-`./localsearch --port=9999 --init` starts a bootstrap peer with listening port 9999
+`./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>]` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude
 
-`./localsearch --port=9998` starts a normal peer on port `9998`
-This peer will look for a bootstrap node on `127.0.0.1:9999` if not otherwise specified.
+`./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>] --lip=188.226.178.57 --lport=9876` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
-`./localsearch --port=9998 --lat=10.0 --lon=20.0` starts a normal peer at latitude 10.0 and longitude 20.0
+`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer with default bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude
 
-`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999` starts a normal peer with default bootstrap node at 188.226.178.57:9999
-
-`./localsearch --port=9998 --lip=188.226.178.57 --lport=9876` starts a normal peer with a central log server at 188.226.178.57:9876
+`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer with default bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
 A global log server is aviable at 188.226.178.57:9876 and can be inspected at http://188.226.178.57:3133/
 
 The Implementation of the log-server can be found [here](https://github.com/mhhf/localsearch-viz).
 
 ## Test
-
 
 
 
@@ -58,11 +54,10 @@ The Implementation of the log-server can be found [here](https://github.com/mhhf
         * remove item
         * leave
     * handle responses
-* Goal: by 2016-01-14
 
 #### Iteration 1.2
 
-* Implement Gnutella 0.4 -> Flo (by 2016-01-19)
+* Implement Gnutella 0.4 -> Flo
     * Joining algorithm **done**
     * Query algorithm **done**
         * very simple implementation based on exact strings and without location awareness 
@@ -81,12 +76,13 @@ The Implementation of the log-server can be found [here](https://github.com/mhhf
 * Test: Simulate large number of peers
 * Test: Find way to examine overlay structure (e.g. supervisor)
 
-###Iteration 2
+###Iteration 2 (unfinished)
 
 * Try to optimize joining of peers w.r.t. the location, i.e. try to find peers that are nearby.
     * Maybe it will be necessary to have addititional random links as well, in order to achieve small world characteristics.
     * Still, do not make routing decisions based on locations (may get stuck in local optima)
 
-###Iteration 3
+###Iteration 3 (unfinished)
+
 * Try to optimize routing w.r.t the location, e.g. do not flood requests further than necessary
     * Note: considered hard by Prof. because we may get stuck in local optima
