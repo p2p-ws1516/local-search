@@ -38,7 +38,7 @@ Run `mix test` to run a set of unit tests.
 To start some peers copy, paste and run these commands:
 
 ```
-./localsearch --port=8000 --init --lat=50.0 --lon=10.0 --lip=188.226.178.57 --lport=9876`
+./localsearch --port=8000 --init --lat=50.0 --lon=10.0 --lip=188.226.178.57 --lport=9876
 ./localsearch --port=9001 --bip=127.0.0.1 --bport=8000 --lat=52.22968 --lon=1.050072 --lip=188.226.178.57 --lport=9876 #Hamburg
 ./localsearch --port=9002 --bip=127.0.0.1 --bport=8000 --lat=39.062144 --lon=125.77113 --lip=188.226.178.57 --lport=9876 #Nordkorea
 ./localsearch --port=9003 --bip=127.0.0.1 --bport=8000 --lat=-23.668326 --lon=-46.666742 --lip=188.226.178.57 --lport=9876 #Brasilien
