@@ -48,14 +48,14 @@ To start some peers copy, paste and run these commands:
 ```
 
 ## Roadmap 
-###Iteration 1
+###Iteration 1 (done)
 
 * Setup *Elixir* project
 * Implement CLI (REPL)
 * Implement simple Gnutella 0.4 using location (radius) as a simple filtering criterion.
 * Note: Requests are simply flooded and without respect to the location.
 
-####Iteration 1.1
+####Iteration 1.1 (done)
 
 * mix / build -> Flo -> **done** 
     * use *mix escript.build* to create executable *localsearch* file
@@ -78,7 +78,7 @@ To start some peers copy, paste and run these commands:
         * leave
     * handle responses
 
-#### Iteration 1.2
+#### Iteration 1.2 (done)
 
 * Implement Gnutella 0.4 -> Flo
     * Joining algorithm **done**
@@ -87,17 +87,16 @@ To start some peers copy, paste and run these commands:
 * Deal with partial failure (e.g. broken TCP connections) **done**
     * some errors get caught    
 
-#### Iteration 1.3
+#### Iteration 1.3 (done)
 
-* Feature: Finish REPL
+* Feature: Finish REPL **done**
 * Queries:
     * Bug: Filter queries based on location **done**
     * Feature: Allow for more complex queries **done**
         - can query by regex and get back multiple results
-* Examine / handle more partial failure scenarios
+* Examine / handle more partial failure scenarios **done**
     * Refactoring: find cleaner way to propagate TCP errors to peer's link list
-* Test: Simulate large number of peers
-* Test: Find way to examine overlay structure (e.g. supervisor)
+* Test: Find way to examine overlay structure (e.g. supervisor) **done**
 
 ###Iteration 2 (unfinished)
 
