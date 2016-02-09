@@ -17,13 +17,13 @@ Peers join the overlay with their geographical location (latitude / longitude). 
 
 To show log messages (including responses to queries) run `./logger`.
 
-`./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>]` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude
+`./localsearch --port=9999 --init --lat=53.548077 --lon=9.962151` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude
 
-`./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>] --lip=188.226.178.57 --lport=9876` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
+`./localsearch --port=9999 --init --lat=53.548077 --lon=9.962151 --lip=188.226.178.57 --lport=9876` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
-`./localsearch --port=9998 --bip=127.0.0.1 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer using bootstrap node at 127.0.0.1:9999 at the location given by latitude / longitude
+`./localsearch --port=9998 --bip=127.0.0.1 --bport=9999 --lat=53.548077 --lon=9.962151` starts a normal peer using bootstrap node at 127.0.0.1:9999 at the location given by latitude / longitude
 
-`./localsearch --port=9998 --bip=127.0.0.1 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer using bootstrap node at 127.0.0.1:9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
+`./localsearch --port=9998 --bip=127.0.0.1 --bport=9999 --lat=53.548077 --lon=9.962151` starts a normal peer using bootstrap node at 127.0.0.1:9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
 A global log server is aviable at 188.226.178.57:9876 and can be inspected at http://188.226.178.57:3133/
 
