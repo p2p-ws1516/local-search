@@ -1,13 +1,42 @@
 # local-search
 
-##Iteration 1
+## Install 
+
+1. install [Elixir](http://elixir-lang.org/install.html) programming language
+2. install [Hex](https://hex.pm/) package manager with `mix local.hex --force`
+3. build the binary with `mix escript.build`
+
+## Run
+
+`./localsearch --port=9999 --init` starts a bootstrap peer with listening port 9999
+
+`./localsearch --port=9998` starts a normal peer on port `9998`
+This peer will look for a bootstrap node on `127.0.0.1:9999` if not otherwise specified.
+
+`./localsearch --port=9998 --lat=10.0 --lon=20.0` starts a normal peer at latitude 10.0 and longitude 20.0
+
+`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999` starts a normal peer with default bootstrap node at 188.226.178.57:9999
+
+`./localsearch --port=9998 --lip=188.226.178.57 --lport=9876` starts a normal peer with a central log server at 188.226.178.57:9876
+
+A global log server is aviable at 188.226.178.57:9876 and can be inspected at http://188.226.178.57:3133/
+
+The Implementation of the log-server can be found [here](https://github.com/mhhf/localsearch-viz).
+
+## Test
+
+
+
+
+## Roadmap 
+###Iteration 1
 
 * Setup *Elixir* project
 * Implement CLI (REPL)
 * Implement simple Gnutella 0.4 using location (radius) as a simple filtering criterion.
 * Note: Requests are simply flooded and without respect to the location.
 
-###Iteration 1.1
+####Iteration 1.1
 
 * mix / build -> Flo -> **done** 
     * use *mix escript.build* to create executable *localsearch* file
@@ -31,7 +60,7 @@
     * handle responses
 * Goal: by 2016-01-14
 
-### Iteration 1.2
+#### Iteration 1.2
 
 * Implement Gnutella 0.4 -> Flo (by 2016-01-19)
     * Joining algorithm **done**
@@ -40,7 +69,7 @@
 * Deal with partial failure (e.g. broken TCP connections) **done**
     * some errors get caught    
 
-### Iteration 1.3
+#### Iteration 1.3
 
 * Feature: Finish REPL
 * Queries:
@@ -52,12 +81,12 @@
 * Test: Simulate large number of peers
 * Test: Find way to examine overlay structure (e.g. supervisor)
 
-##Iteration 2
+###Iteration 2
 
 * Try to optimize joining of peers w.r.t. the location, i.e. try to find peers that are nearby.
     * Maybe it will be necessary to have addititional random links as well, in order to achieve small world characteristics.
     * Still, do not make routing decisions based on locations (may get stuck in local optima)
 
-##Iteration 3
+###Iteration 3
 * Try to optimize routing w.r.t the location, e.g. do not flood requests further than necessary
     * Note: considered hard by Prof. because we may get stuck in local optima
