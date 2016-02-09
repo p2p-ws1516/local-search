@@ -8,6 +8,8 @@
 
 ## Run
 
+**Note:** the order of command line options *matters*
+
 `./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>]` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude
 
 `./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>] --lip=188.226.178.57 --lport=9876` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
