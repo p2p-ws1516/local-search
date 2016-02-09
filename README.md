@@ -27,7 +27,7 @@ The Implementation of the log-server can be found [here](https://github.com/mhhf
 
 ## Test
 
-
+Run `mix test` to run a set of unit tests.
 
 ## Roadmap 
 ###Iteration 1
