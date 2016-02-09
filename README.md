@@ -14,9 +14,9 @@
 
 `./localsearch --port=9999 --init --lat=[latitude] --lon=[longitude>] --lip=188.226.178.57 --lport=9876` starts a bootstrap peer with listening port 9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
-`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer with default bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude
+`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer using bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude
 
-`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer with default bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
+`./localsearch --port=9998 --bip=188.226.178.57 --bport=9999 --lat=[latitude] --lon=[longitude>]` starts a normal peer using bootstrap node at 188.226.178.57:9999 at the location given by latitude / longitude that periodically sends status updates to a central log server at 188.226.178.57:9876 (for testing)
 
 A global log server is aviable at 188.226.178.57:9876 and can be inspected at http://188.226.178.57:3133/
 
