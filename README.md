@@ -4,7 +4,8 @@
 
 1. install [Elixir](http://elixir-lang.org/install.html) programming language
 2. install [Hex](https://hex.pm/) package manager with `mix local.hex --force`
-3. build the binary with `mix escript.build`
+3. get the dependencies with `mix deps.get`
+4. build the binary with `mix escript.build`
 
 ## Run
 
