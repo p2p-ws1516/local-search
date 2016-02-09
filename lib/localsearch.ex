@@ -19,9 +19,7 @@ defmodule Main do
 	      }) 
     	end
     {:ok, cli} = CLI.start_link()
-    unless init do CLI.repl( cli, pid ) end
-    # Agent.start_link fn -> CLI.repl(pid) end
-    if init do loop() end
+    CLI.repl( cli, pid )
 	end
   defp loop() do
     receive do
