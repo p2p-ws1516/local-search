@@ -1,5 +1,9 @@
 # local-search
 
+**local-search** is a location aware Gnutella implementation.
+
+Peers join the overlay with their geographical location (latitude / longitude).Each peer maintains an inventory of *items*. Other peers can look for items of interest in a particular radius around their own location. These queries can be arbitrary regular expressions that are matched against the inventory of other peers. Location awareness should allow for a more effecient overlay structure and query routing.
+
 ## Install 
 
 1. install [Elixir](http://elixir-lang.org/install.html) programming language
